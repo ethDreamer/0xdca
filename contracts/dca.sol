@@ -16,14 +16,6 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256); // Added allowance method
 }
 
-interface IAllowanceTarget {
-    function executeCall(
-        address payable target,
-        uint256 value,
-        bytes calldata data
-    ) external payable returns (bool); // Adjusted to return only bool for success/failure
-}
-
 contract DCAContract {
     address public owner; // Cold wallet
     address public executor; // Hot wallet
@@ -92,11 +84,7 @@ contract DCAContract {
 
         // Execute the swap using the 0x Allowance Target
         // Try executing the swap and catch reverts
-        bool success = IAllowanceTarget(allowanceTarget).executeCall(
-            payable(address(0)),
-            0, 
-            swapData
-        );
+        (bool success, bytes memory result) = allowanceTarget.call(swapData);
         require(success, "Swap failed");
 
         // Verify the amount bought
