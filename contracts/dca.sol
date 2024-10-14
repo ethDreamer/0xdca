@@ -1,3 +1,4 @@
+// DCAContract.sol
 pragma solidity ^0.8.0;
 
 interface IERC20 {
@@ -13,12 +14,16 @@ interface IERC20 {
 
     function transfer(address to, uint256 amount) external returns (bool);
 
-    function allowance(address owner, address spender) external view returns (uint256); // Added allowance method
+    function allowance(address owner, address spender) external view returns (uint256);
 }
 
 contract DCAContract {
     address public owner; // Cold wallet
     address public executor; // Hot wallet
+
+    address public sellToken;
+    address public buyToken;
+    address public uniswapPool;
 
     uint256 public maxSwapAmount;
     uint256 public minSwapInterval;
@@ -36,11 +41,17 @@ contract DCAContract {
 
     constructor(
         address _executor,
+        address _sellToken,
+        address _buyToken,
+        address _uniswapPool,
         uint256 _maxSwapAmount,
         uint256 _minSwapInterval
     ) {
-        owner = msg.sender; // Cold wallet deploys the contract
+        owner = msg.sender;
         executor = _executor;
+        sellToken = _sellToken;
+        buyToken = _buyToken;
+        uniswapPool = _uniswapPool;
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
     }
@@ -50,19 +61,37 @@ contract DCAContract {
         executor = _executor;
     }
 
+    // Allows the owner to update the sellToken and buyToken
+    function setTokens(address _sellToken, address _buyToken, address _uniswapPool) external onlyOwner {
+        sellToken = _sellToken;
+        buyToken = _buyToken;
+        uniswapPool = _uniswapPool;
+    }
+
+    // Public getter functions for the sellToken and buyToken
+    function getSellToken() external view returns (address) {
+        return sellToken;
+    }
+
+    function getBuyToken() external view returns (address) {
+        return buyToken;
+    }
+
     // Allows the owner to update swap parameters
     function setSwapParameters(uint256 _maxSwapAmount, uint256 _minSwapInterval) external onlyOwner {
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
     }
 
+    function calculateMinBuyAmount(uint256 sellAmount) public view returns (uint256) {
+        // TODO: use uniswap to calculate price
+        return 0;
+    }
+
     // Main function to execute the swap
     function executeSwap(
         address allowanceTarget,
-        address sellToken,
-        address buyToken,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         bytes calldata swapData // Contains the call data to pass to the 0x Exchange
     ) external onlyExecutor {
         require(block.timestamp >= lastSwapTime + minSwapInterval, "Swap interval not reached");
@@ -83,12 +112,12 @@ contract DCAContract {
         );
 
         // Execute the swap using the 0x Allowance Target
-        // Try executing the swap and catch reverts
         (bool success, bytes memory result) = allowanceTarget.call(swapData);
         require(success, "Swap failed");
 
         // Verify the amount bought
         uint256 buyAmount = IERC20(buyToken).balanceOf(address(this));
+        uint256 minBuyAmount = calculateMinBuyAmount(sellAmount);
         require(buyAmount >= minBuyAmount, "Buy amount less than minimum");
 
         // Transfer the bought tokens back to the cold wallet

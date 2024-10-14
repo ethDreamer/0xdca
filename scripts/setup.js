@@ -10,13 +10,16 @@ async function main() {
 
   const initialUSDCBalance = "100000";
   const feeData = await ethers.provider.getFeeData();
+  const sellToken = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC
+  const buyToken = "0x4200000000000000000000000000000000000006"; // WETH
+  const unipool = "0x4200000000000000000000000000000000000006";
 
   // Impersonate the USDC holder account
   await ethers.provider.send("hardhat_impersonateAccount", [USDC_HOLDER_ADDRESS]);
   const usdcHolder = await ethers.getSigner(USDC_HOLDER_ADDRESS);
 
   // Transfer USDC to the owner
-  const usdc = await ethers.getContractAt("IERC20", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", usdcHolder);
+  const usdc = await ethers.getContractAt("IERC20", sellToken, usdcHolder);
   await usdc.connect(usdcHolder).transfer(owner.address, ethers.parseUnits(initialUSDCBalance, 6), {
     maxFeePerGas: feeData.maxFeePerGas,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
@@ -28,6 +31,9 @@ async function main() {
   const minSwapInterval = 0;
   const dca = await DCAContract.connect(owner).deploy(
     executor.address,
+    sellToken,
+    buyToken,
+    unipool,
     maxSwapAmount,
     minSwapInterval,
     {

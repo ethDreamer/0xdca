@@ -29,7 +29,7 @@ async function main() {
 
   // Execute the swap
   const dca = await ethers.getContractAt("DCAContract", contractAddress, executor);
-  await dca.executeSwap(allowanceTarget, sellToken, buyToken, sellAmount, minBuyAmount, swapData, {
+  await dca.executeSwap(allowanceTarget, sellAmount, swapData, {
     maxFeePerGas: feeData.maxFeePerGas,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   });

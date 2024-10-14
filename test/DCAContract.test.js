@@ -72,8 +72,8 @@ describe("DCAContract", function () {
     console.log("Buy Token:", buyToken);
     console.log("Sell Amount:", sellAmount);
     console.log("Min Buy Amount:", minBuyAmount);
-    console.log("Swap Data:", swapData);
     console.log("AllowanceTarget:", allowanceTarget);
+    console.log("Swap Data:", swapData);
 
     const txResponse = await dca.connect(executor).executeSwap(allowanceTarget, sellToken, buyToken, sellAmount, minBuyAmount, swapData);
     const txReceipt = await txResponse.wait();
