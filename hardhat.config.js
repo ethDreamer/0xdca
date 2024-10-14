@@ -16,6 +16,13 @@ module.exports = {
         url: `https://base-mainnet.infura.io/v3/${INFURA_API_KEY}`,
         blockNumber: 21062365,
       },
+      chains: {
+        8453: {
+          hardforkHistory: {
+            "cancun": 21062365
+          }
+        }
+      },
       accounts: [
         {
           privateKey: `0x${OWNER_PRIVATE_KEY}`,
