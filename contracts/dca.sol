@@ -8,10 +8,12 @@ interface IERC20 {
     ) external returns (bool);
 
     function approve(address spender, uint256 amount) external returns (bool);
-    
+
     function balanceOf(address account) external view returns (uint256);
 
     function transfer(address to, uint256 amount) external returns (bool);
+
+    function allowance(address owner, address spender) external view returns (uint256); // Added allowance method
 }
 
 interface IAllowanceTarget {
@@ -19,13 +21,12 @@ interface IAllowanceTarget {
         address payable target,
         uint256 value,
         bytes calldata data
-    ) external payable returns (bytes memory);
+    ) external payable returns (bool); // Adjusted to return only bool for success/failure
 }
 
 contract DCAContract {
-    address public owner;          // Cold wallet
-    address public executor;       // Hot wallet
-    address public allowanceTarget;  // 0x Allowance Target (AllowanceHolder)
+    address public owner; // Cold wallet
+    address public executor; // Hot wallet
 
     uint256 public maxSwapAmount;
     uint256 public minSwapInterval;
@@ -43,13 +44,11 @@ contract DCAContract {
 
     constructor(
         address _executor,
-        address _allowanceTarget,  // AllowanceHolder address
         uint256 _maxSwapAmount,
         uint256 _minSwapInterval
     ) {
         owner = msg.sender; // Cold wallet deploys the contract
         executor = _executor;
-        allowanceTarget = _allowanceTarget;
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
     }
@@ -67,11 +66,12 @@ contract DCAContract {
 
     // Main function to execute the swap
     function executeSwap(
+        address allowanceTarget,
         address sellToken,
         address buyToken,
         uint256 sellAmount,
         uint256 minBuyAmount,
-        bytes calldata swapData  // Contains the call data to pass to the 0x Exchange
+        bytes calldata swapData // Contains the call data to pass to the 0x Exchange
     ) external onlyExecutor {
         require(block.timestamp >= lastSwapTime + minSwapInterval, "Swap interval not reached");
         require(sellAmount <= maxSwapAmount, "Sell amount exceeds max limit");
@@ -91,14 +91,15 @@ contract DCAContract {
         );
 
         // Execute the swap using the 0x Allowance Target
-        (bool success, bytes memory resultData) = IAllowanceTarget(allowanceTarget).executeCall(
-            payable(address(0)), // no ETH transfer needed
-            0,
+        // Try executing the swap and catch reverts
+        bool success = IAllowanceTarget(allowanceTarget).executeCall(
+            payable(address(0)),
+            0, 
             swapData
         );
         require(success, "Swap failed");
 
-        // Optionally, parse resultData to verify buyAmount (if available)
+        // Verify the amount bought
         uint256 buyAmount = IERC20(buyToken).balanceOf(address(this));
         require(buyAmount >= minBuyAmount, "Buy amount less than minimum");
 
