@@ -43,15 +43,15 @@ async function allpools(chainId, sellToken, buyToken) {
 }
 
 async function main() {
-  const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, USDC_HOLDER_ADDRESS, CHAIN_ID } = process.env;
+  const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, USDC_HOLDER_ADDRESS, CHAIN_ID, BUY_TOKEN_ADDRESS, SELL_TOKEN_ADDRESS } = process.env;
   const owner = new ethers.Wallet(OWNER_PRIVATE_KEY, ethers.provider);
   const executor = new ethers.Wallet(EXECUTOR_PRIVATE_KEY, ethers.provider);
 
   const initialUSDCBalance = "100000";
   const feeData = await ethers.provider.getFeeData();
 
-  const sellTokenAddress = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC
-  const buyTokenAddress = "0x4200000000000000000000000000000000000006"; // WETH
+  const sellTokenAddress = SELL_TOKEN_ADDRESS
+  const buyTokenAddress = BUY_TOKEN_ADDRESS
   const chainId = parseInt(CHAIN_ID);
 
   // Create Token instances for Uniswap SDK
