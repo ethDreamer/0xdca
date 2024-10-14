@@ -1,4 +1,3 @@
-// scripts/setup.js
 const { ethers } = require("hardhat");
 const fs = require("fs");
 require("dotenv").config();
@@ -25,11 +24,17 @@ async function main() {
   await ethers.provider.send("hardhat_impersonateAccount", [USDC_HOLDER_ADDRESS]);
   const usdcHolder = await ethers.getSigner(USDC_HOLDER_ADDRESS);
 
+  // Fetch current gas fee data
+  const feeData = await ethers.provider.getFeeData();
+
   // Fetch USDC contract instance connected to usdcHolder
   const usdc = await ethers.getContractAt("IERC20", sellToken, usdcHolder);
 
   // Transfer USDC from the impersonated account to the owner
-  await usdc.connect(usdcHolder).transfer(owner.address, ethers.parseUnits(initialUSDCBalance, 6));
+  await usdc.connect(usdcHolder).transfer(owner.address, ethers.parseUnits(initialUSDCBalance, 6), {
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  });
   console.log(`Transferred ${initialUSDCBalance} USDC to owner address from ${USDC_HOLDER_ADDRESS}`);
 
   // Deploy the DCA contract from the owner
@@ -38,16 +43,22 @@ async function main() {
   const minSwapInterval = 30;
   const dca = await DCAContract.connect(owner).deploy(
     executor.address,
-    allowanceTarget,
     maxSwapAmount,
-    minSwapInterval
+    minSwapInterval,
+    {
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    }
   );
   await dca.waitForDeployment();
   console.log(`DCAContract deployed at: ${dca.target}`);
 
   // Approve the DCA contract to spend USDC on behalf of owner
   const usdcOwner = await ethers.getContractAt("IERC20", sellToken, owner);
-  await usdcOwner.approve(dca.target, ethers.MaxUint256);
+  await usdcOwner.approve(dca.target, ethers.MaxUint256, {
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  });
 
   const usdcBalance = await usdcOwner.balanceOf(owner.address);
   const usdcAllowance = await usdcOwner.allowance(owner.address, dca.target);
@@ -56,8 +67,23 @@ async function main() {
   console.log(`USDC Allowance for DCA Contract: ${usdcAllowance.toString()}`);
 
   // Execute the swap with calldata from 0xquote.json
-  await dca.connect(executor).executeSwap(sellToken, buyToken, sellAmount, minBuyAmount, swapData);
+  await dca.connect(executor).executeSwap(allowanceTarget, sellToken, buyToken, sellAmount, minBuyAmount, swapData, {
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  });
   console.log(`Swap executed successfully.`);
+
+  const executorEthBalance = await ethers.provider.getBalance(executor.address);
+  console.log("Executor ETH Balance:", ethers.formatEther(executorEthBalance));
+
+  // Check USDC balance of the owner
+  const ownerUsdcBalance = await usdc.balanceOf(owner.address);
+  console.log("Owner USDC Balance:", ethers.formatUnits(ownerUsdcBalance, 6));
+
+  // Check WETH balance of the owner
+  const weth = await ethers.getContractAt("IERC20", "0x4200000000000000000000000000000000000006");
+  const ownerWethBalance = await weth.balanceOf(owner.address);
+  console.log("Owner WETH Balance:", ethers.formatEther(ownerWethBalance));
 
   // Stop impersonating the USDC holder
   await ethers.provider.send("hardhat_stopImpersonatingAccount", [USDC_HOLDER_ADDRESS]);
