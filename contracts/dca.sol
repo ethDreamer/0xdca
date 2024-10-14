@@ -23,7 +23,8 @@ contract DCAContract {
 
     address public sellToken;
     address public buyToken;
-    address public uniswapPool;
+    address public uniswapQuoter;
+    uint24 public uniswapPoolFee;
 
     uint256 public maxSwapAmount;
     uint256 public minSwapInterval;
@@ -43,7 +44,8 @@ contract DCAContract {
         address _executor,
         address _sellToken,
         address _buyToken,
-        address _uniswapPool,
+        address _uniswapQuoter,
+        uint24 _uniswapPoolFee,
         uint256 _maxSwapAmount,
         uint256 _minSwapInterval
     ) {
@@ -51,7 +53,8 @@ contract DCAContract {
         executor = _executor;
         sellToken = _sellToken;
         buyToken = _buyToken;
-        uniswapPool = _uniswapPool;
+        uniswapQuoter = _uniswapQuoter;
+        uniswapPoolFee = _uniswapPoolFee;
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
     }
@@ -62,10 +65,10 @@ contract DCAContract {
     }
 
     // Allows the owner to update the sellToken and buyToken
-    function setTokens(address _sellToken, address _buyToken, address _uniswapPool) external onlyOwner {
+    function setTokens(address _sellToken, address _buyToken, uint24 _uniswapPoolFee) external onlyOwner {
         sellToken = _sellToken;
         buyToken = _buyToken;
-        uniswapPool = _uniswapPool;
+        uniswapPoolFee = _uniswapPoolFee;
     }
 
     // Public getter functions for the sellToken and buyToken
@@ -81,6 +84,10 @@ contract DCAContract {
     function setSwapParameters(uint256 _maxSwapAmount, uint256 _minSwapInterval) external onlyOwner {
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
+    }
+
+    function setQuoter(address _uniswapQuoter) external onlyOwner {
+        uniswapQuoter = _uniswapQuoter;
     }
 
     function calculateMinBuyAmount(uint256 sellAmount) public view returns (uint256) {

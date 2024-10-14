@@ -30,7 +30,7 @@ async function allpools(chainId, sellToken, buyToken) {
     let liquidityInt = BigInt(liquidity.toString());
     if (liquidityInt > greatestLiquidity) {
       greatestLiquidity = liquidityInt;
-      bestPool = poolAddress;
+      bestPool = poolFee;
     }
 
     // Print out pool information
@@ -43,7 +43,7 @@ async function allpools(chainId, sellToken, buyToken) {
 }
 
 async function main() {
-  const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, USDC_HOLDER_ADDRESS, CHAIN_ID, BUY_TOKEN_ADDRESS, SELL_TOKEN_ADDRESS } = process.env;
+  const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, USDC_HOLDER_ADDRESS, CHAIN_ID, BUY_TOKEN_ADDRESS, SELL_TOKEN_ADDRESS, UNISWAP_QUOTER } = process.env;
   const owner = new ethers.Wallet(OWNER_PRIVATE_KEY, ethers.provider);
   const executor = new ethers.Wallet(EXECUTOR_PRIVATE_KEY, ethers.provider);
 
@@ -59,8 +59,8 @@ async function main() {
   const buyToken = new Token(chainId, buyTokenAddress, 18, "WETH", "Wrapped ETH");
 
   // find the most liquid pool
-  const poolAddress = await allpools(chainId, sellToken, buyToken);
-  console.log(`Most liquid pool address: ${poolAddress}`);
+  const poolFee = await allpools(chainId, sellToken, buyToken);
+  console.log(`Most liquid pool fee: ${poolFee}`);
 
   // Impersonate the USDC holder account
   await ethers.provider.send("hardhat_impersonateAccount", [USDC_HOLDER_ADDRESS]);
@@ -81,7 +81,8 @@ async function main() {
     executor.address,
     sellToken.address,
     buyToken.address,
-    poolAddress,
+    UNISWAP_QUOTER,
+    poolFee,
     maxSwapAmount,
     minSwapInterval,
     {
