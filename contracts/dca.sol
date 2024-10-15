@@ -1,5 +1,6 @@
 // DCAContract.sol
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
+pragma abicoder v2; // Enable ABI coder v2
 
 interface IERC20 {
     function transferFrom(
@@ -17,7 +18,28 @@ interface IERC20 {
     function allowance(address owner, address spender) external view returns (uint256);
 }
 
+interface IQuoterV2 {
+    struct QuoteExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint256 amountIn;
+        uint24 fee;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
+        external
+        returns (
+            uint256 amountOut,
+            uint160 sqrtPriceX96After,
+            uint32 initializedTicksCrossed,
+            uint256 gasEstimate
+        );
+}
+
 contract DCAContract {
+    //event SwapComparison(uint256 buyAmount, uint256 minBuyAmount);
+
     address public owner; // Cold wallet
     address public executor; // Hot wallet
 
@@ -90,9 +112,35 @@ contract DCAContract {
         uniswapQuoter = _uniswapQuoter;
     }
 
-    function calculateMinBuyAmount(uint256 sellAmount) public view returns (uint256) {
-        // TODO: use uniswap to calculate price
-        return 0;
+    function getToleranceFactor() internal view returns (uint256) {
+        if (uniswapPoolFee == 3000) {
+            return 9800; // 2% tolerance
+        } else if (uniswapPoolFee == 500) {
+            return 9950; // 0.5% tolerance as a decimal (99.5%)
+        } else if (uniswapPoolFee == 100) {
+            return 9990; // 0.1% tolerance as a decimal (99.9%)
+        } else {
+            return 9900;
+        }
+    }
+
+    function calculateMinBuyAmount(uint256 sellAmount) internal returns (uint256) {
+        IQuoterV2 quoter = IQuoterV2(uniswapQuoter);
+
+        // Prepare the parameters for the quoter function
+        IQuoterV2.QuoteExactInputSingleParams memory params = IQuoterV2.QuoteExactInputSingleParams({
+            tokenIn: sellToken,
+            tokenOut: buyToken,
+            fee: uniswapPoolFee,
+            amountIn: sellAmount,
+            sqrtPriceLimitX96: 0  // No price limit
+        });
+
+        // Capture all returned values
+        (uint256 amountOut, , , ) = quoter.quoteExactInputSingle(params);
+
+        uint256 tolerance = getToleranceFactor();
+        return amountOut * tolerance / 10000;
     }
 
     // Main function to execute the swap
@@ -119,12 +167,14 @@ contract DCAContract {
         );
 
         // Execute the swap using the 0x Allowance Target
-        (bool success, bytes memory result) = allowanceTarget.call(swapData);
+        (bool success, ) = allowanceTarget.call(swapData);
         require(success, "Swap failed");
 
         // Verify the amount bought
         uint256 buyAmount = IERC20(buyToken).balanceOf(address(this));
         uint256 minBuyAmount = calculateMinBuyAmount(sellAmount);
+        // Emit the buyAmount and minBuyAmount for debugging
+        // emit SwapComparison(buyAmount, minBuyAmount);
         require(buyAmount >= minBuyAmount, "Buy amount less than minimum");
 
         // Transfer the bought tokens back to the cold wallet

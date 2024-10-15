@@ -2,6 +2,8 @@ const { expect } = require("chai");
 const fs = require("fs");
 require("hardhat-tracer");
 const { Interface } = require("ethers");
+const { Token } = require("@uniswap/sdk-core");
+const { computePoolAddress } = require("@uniswap/v3-sdk");
 
 describe("DCAContract", function () {
   let owner, executor, usdcHolder, usdc, dca;
@@ -36,16 +38,59 @@ describe("DCAContract", function () {
     await usdc.connect(usdcHolder).transfer(owner.address, initialUSDCBalance);
   });
 
+  async function allpools(chainId, sellTokenAddr, buyTokenAddr) {
+    const { UNISWAP_FACTORY } = process.env;
+    const sellToken = new Token(chainId, sellTokenAddr, 6, "USDC", "USD Coin");
+    const buyToken = new Token(chainId, buyTokenAddr, 18, "WETH", "Wrapped ETH");
+
+    // load uniswapv3pool abi
+    const IUniswapV3PoolABI = JSON.parse(fs.readFileSync("./abis/IUniswapV3Pool.json", "utf8"));
+
+    // Loop through each pool fee of 3000, 500, 100 basis points
+    var greatestLiquidity = 0;
+    var bestPool = "";
+    for (const poolFee of [3000, 500, 100]) {
+      const poolAddress = computePoolAddress({
+        factoryAddress: UNISWAP_FACTORY,
+        tokenA: sellToken,
+        tokenB: buyToken,
+        fee: poolFee,
+        chainId: chainId,
+      });
+
+      // Initialize the pool contract instance with ABI and address
+      const pool = new ethers.Contract(poolAddress, IUniswapV3PoolABI, ethers.provider);
+
+      // Get liquidity from the pool contract
+      const liquidity = await pool.liquidity();
+      let liquidityInt = BigInt(liquidity.toString());
+      if (liquidityInt > greatestLiquidity) {
+        greatestLiquidity = liquidityInt;
+        bestPool = poolFee;
+      }
+
+      // Print out pool information
+      console.log(`Pool Fee: ${poolFee}`);
+      console.log(`Pool Address: ${poolAddress}`);
+      console.log(`Pool Liquidity: ${liquidity.toString()}\n`);
+    }
+
+    return bestPool;
+  }
+
   it("should deploy and execute swap on DCAContract", async function () {
     // Deploy the DCA contract from the owner
     const DCAContract = await ethers.getContractFactory("DCAContract");
     const maxSwapAmount = ethers.parseUnits("1000", 6);
     const minSwapInterval = 30;
-
-    console.log(`DCAContract.connect(${owner.address}).deploy(${executor.address}, ${maxSwapAmount}, ${minSwapInterval});`);
+    const poolFee = await allpools(1, sellToken, buyToken);
 
     const dca = await DCAContract.connect(owner).deploy(
         executor.address,
+        sellToken,
+        buyToken,
+        process.env.UNISWAP_QUOTER,
+        poolFee,
         maxSwapAmount,
         minSwapInterval
     );
@@ -75,7 +120,7 @@ describe("DCAContract", function () {
     console.log("AllowanceTarget:", allowanceTarget);
     console.log("Swap Data:", swapData);
 
-    const txResponse = await dca.connect(executor).executeSwap(allowanceTarget, sellToken, buyToken, sellAmount, minBuyAmount, swapData);
+    const txResponse = await dca.connect(executor).executeSwap(allowanceTarget, sellAmount, swapData);
     const txReceipt = await txResponse.wait();
 
     // Verify transaction completion

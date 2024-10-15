@@ -5,10 +5,12 @@ const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, INFURA_API_KEY } = process.env;
 
 module.exports = {
   solidity: {
-    version: "0.8.27",
-    settings: {
-      evmVersion: "cancun"
-    },
+    compilers: [
+      {
+        version: "0.8.4", // Add this older version for Uniswap dependencies
+        settings: {},
+      },
+    ],
   },
   networks: {
     hardhat: {
