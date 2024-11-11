@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0xDCA Front End</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 500px;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary {
+            font-weight: 600;
+        }
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        #status-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        <div class="text-center mb-4">
+            <h1 class="display-6 text-primary">0xDCA Contract Manager</h1>
+            <p class="lead text-secondary">Manage your decentralized contract interactions easily.</p>
+        </div>
+        <div class="d-flex justify-content-center">
+            <button id="connect-wallet" class="btn btn-primary btn-lg mb-3">Connect Wallet</button>
+        </div>
+        <div id="proxy-status" class="card p-4">
+            <div class="card-body text-center">
+                <h5 class="card-title text-secondary">Proxy Contract Status</h5>
+                <p id="status-text" class="text-muted">Not connected</p>
+                <button id="create-proxy" class="btn btn-secondary" style="display: none;">Create Proxy</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
+
