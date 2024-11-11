@@ -1,16 +1,24 @@
 #!/bin/bash
 
+# Load environment variables from .env file
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+else
+  echo ".env file not found."
+  exit 1
+fi
+
 # Required environment variables
 ZERO_EX_API_KEY="16af6bfa-7cb4-4548-88d4-00b86bcbbca8"
 
-# Tokens and chain details
-CHAIN_ID="8453"
-SELL_TOKEN="0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"  # USDC contract address
-BUY_TOKEN="0x4200000000000000000000000000000000000006"   # WETH contract address
-SELL_AMOUNT="1000000000"  # Amount of sell token (1,000 USDC assuming 6 decimals)
-TAKER="0x663e9606Bb8DCc7F7f2089804AD2613721F49cFC"
-TX_ORIGIN="0xbbFFbbF5B71283Cd831F4f173581b8969Ab4728c"  # Executor address
-SLIPPAGE_BPS="100"
+# Fetching necessary variables from .env or setting defaults
+CHAIN_ID=${CHAIN_ID:-8453}
+SELL_TOKEN=${SELL_TOKEN_ADDRESS}
+BUY_TOKEN=${BUY_TOKEN_ADDRESS}
+SELL_AMOUNT="1000000000"  # Adjusted sell amount (1,000 USDC assuming 6 decimals)
+TAKER=${USDC_HOLDER_ADDRESS}
+TX_ORIGIN=${EXECUTOR_PRIVATE_KEY}  # Executor address
+SLIPPAGE_BPS=${SLIPPAGE_BPS:-100}
 
 # Fetch headers for 0x API requests
 HEADERS="Content-Type: application/json"

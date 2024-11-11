@@ -10,5 +10,8 @@
     "@uniswap/v3-sdk": "^3.18.1",
     "dotenv": "^16.4.5",
     "hardhat-tracer": "^3.1.0"
+  },
+  "scripts": {
+    "deploy:contracts": "npx hardhat run scripts/setup.js --network hardhat"
   }
 }
