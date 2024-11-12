@@ -9,8 +9,8 @@ async function allpools(chainId, sellToken, buyToken) {
   const { UNISWAP_FACTORY } = process.env;
   const IUniswapV3PoolABI = JSON.parse(fs.readFileSync("./abis/IUniswapV3Pool.json", "utf8"));
 
-  var greatestLiquidity = 0;
-  var bestPool = "";
+  let greatestLiquidity = 0;
+  let bestPool = "";
   for (const poolFee of [3000, 500, 100]) {
     const poolAddress = computePoolAddress({
       factoryAddress: UNISWAP_FACTORY,
@@ -22,7 +22,7 @@ async function allpools(chainId, sellToken, buyToken) {
 
     const pool = new ethers.Contract(poolAddress, IUniswapV3PoolABI, ethers.provider);
     const liquidity = await pool.liquidity();
-    let liquidityInt = BigInt(liquidity.toString());
+    const liquidityInt = BigInt(liquidity.toString());
     if (liquidityInt > greatestLiquidity) {
       greatestLiquidity = liquidityInt;
       bestPool = poolFee;
@@ -34,6 +34,13 @@ async function allpools(chainId, sellToken, buyToken) {
   }
 
   return bestPool;
+}
+
+async function logBalances(address, usdc) {
+  const ethBalance = await ethers.provider.getBalance(address);
+  const usdcBalance = await usdc.balanceOf(address);
+  console.log(`ETH Balance of ${address}:`, ethers.formatEther(ethBalance));
+  console.log(`USDC Balance of ${address}:`, ethers.formatUnits(usdcBalance, 6));
 }
 
 async function main() {
@@ -72,23 +79,12 @@ async function main() {
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   });
 
-  // Deploy the DCA contract
+  // Deploy the DCA contract (no constructor arguments needed)
   const DCAContract = await ethers.getContractFactory("DCAContract");
-  const maxSwapAmount = ethers.parseUnits("1000", sellToken.decimals);
-  const minSwapInterval = 0;
-  const dca = await DCAContract.connect(owner).deploy(
-    executor.address,
-    sellToken.address,
-    buyToken.address,
-    UNISWAP_QUOTER,
-    poolFee,
-    maxSwapAmount,
-    minSwapInterval,
-    {
-      maxFeePerGas: feeData.maxFeePerGas,
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    }
-  );
+  const dca = await DCAContract.connect(owner).deploy({
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  });
   await dca.waitForDeployment();
   console.log(`DCAContract deployed at: ${dca.target}`);
 
@@ -104,6 +100,22 @@ async function main() {
   // Save the contract addresses for later use
   fs.writeFileSync("./scripts/data/contractAddress.txt", dca.target);
   fs.writeFileSync("./scripts/data/proxyFactoryAddress.txt", proxyFactory.target);
+
+  const testing_address = "0x670CCA46347c59B9BDcD7B0E0239B7B58eFA0214";
+  console.log("Balances before transfer to testing address:");
+  await logBalances(testing_address, usdc);
+
+  // Send 5 ETH and 10,000 USDC to testing address
+  await owner.sendTransaction({
+    to: testing_address,
+    value: ethers.parseEther("5"),
+  }).then(tx => tx.wait());
+  await usdc.connect(owner).transfer(testing_address, ethers.parseUnits("10000", sellToken.decimals)).then(tx => tx.wait());
+
+  console.log("Balances after transfer to testing address:");
+  await logBalances(testing_address, usdc);
+
+  await network.provider.send("evm_setIntervalMining", [5000]);
 
   await ethers.provider.send("hardhat_stopImpersonatingAccount", [USDC_HOLDER_ADDRESS]);
 }

@@ -38,10 +38,8 @@ interface IQuoterV2 {
 }
 
 contract DCAContract {
-    //event SwapComparison(uint256 buyAmount, uint256 minBuyAmount);
-
-    address public owner; // Cold wallet
-    address public executor; // Hot wallet
+    address public owner;
+    address public executor;
 
     address public sellToken;
     address public buyToken;
@@ -51,6 +49,8 @@ contract DCAContract {
     uint256 public maxSwapAmount;
     uint256 public minSwapInterval;
     uint256 public lastSwapTime;
+
+    bool private initialized;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -62,7 +62,8 @@ contract DCAContract {
         _;
     }
 
-    constructor(
+    function initialize(
+        address _owner,
         address _executor,
         address _sellToken,
         address _buyToken,
@@ -70,8 +71,9 @@ contract DCAContract {
         uint24 _uniswapPoolFee,
         uint256 _maxSwapAmount,
         uint256 _minSwapInterval
-    ) {
-        owner = msg.sender;
+    ) external {
+        require(!initialized, "Already initialized");
+        owner = _owner;
         executor = _executor;
         sellToken = _sellToken;
         buyToken = _buyToken;
@@ -79,6 +81,11 @@ contract DCAContract {
         uniswapPoolFee = _uniswapPoolFee;
         maxSwapAmount = _maxSwapAmount;
         minSwapInterval = _minSwapInterval;
+        initialized = true;
+    }
+
+    constructor() {
+        owner = msg.sender;
     }
 
     // Allows the owner to update the executor

@@ -13,23 +13,49 @@ contract DCAProxyFactory {
         dcaContractImplementation = _dcaContractImplementation;
     }
 
-    function createProxy() external returns (address) {
+    function createProxy(
+        address _executor,
+        address _sellToken,
+        address _buyToken,
+        address _uniswapQuoter,
+        uint24 _uniswapPoolFee,
+        uint256 _maxSwapAmount,
+        uint256 _minSwapInterval
+    ) external returns (address) {
         require(userProxies[msg.sender] == address(0), "Proxy already exists for this address");
 
-        // Create a new proxy instance (using EIP-1167 minimal proxy pattern)
         bytes20 targetBytes = bytes20(dcaContractImplementation);
         address proxy;
+
+        // EIP-1167 minimal proxy deployment
         assembly {
             let clone := mload(0x40)
-            mstore(clone, 0x3d602d80600a3d3981f3) // minimal proxy creation code
+            mstore(clone, 0x3d602d80600a3d3981f3)
             mstore(add(clone, 0x14), targetBytes)
             mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf3)
             proxy := create(0, clone, 0x37)
         }
 
         require(proxy != address(0), "Proxy creation failed");
+
+        // Initialize the proxy contract
+        (bool success, ) = proxy.call(
+            abi.encodeWithSignature(
+                "initialize(address,address,address,address,address,uint24,uint256,uint256)",
+                msg.sender,        // _owner
+                _executor,         // _executor
+                _sellToken,        // _sellToken
+                _buyToken,         // _buyToken
+                _uniswapQuoter,    // _uniswapQuoter
+                _uniswapPoolFee,   // _uniswapPoolFee
+                _maxSwapAmount,    // _maxSwapAmount
+                _minSwapInterval   // _minSwapInterval
+            )
+        );
+        require(success, "Initialization failed");
+
         userProxies[msg.sender] = proxy;
-        
+
         emit ProxyCreated(msg.sender, proxy);
         return proxy;
     }

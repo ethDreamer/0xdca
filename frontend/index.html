@@ -31,6 +31,18 @@
     </style>
 </head>
 <body>
+    <div class="text-center mb-3">
+        <select id="provider-select" class="form-select">
+            <option value="metamask">MetaMask</option>
+            <option value="rabby">Rabby</option>
+        </select>
+    </div>
+    <div class="text-center mb-3">
+        <select id="network-select" class="form-select">
+            <option value="8453">Base Mainnet</option>
+            <option value="31337">Localhost</option>
+        </select>
+    </div>
     <div class="container my-5">
         <div class="text-center mb-4">
             <h1 class="display-6 text-primary">0xDCA Contract Manager</h1>
@@ -46,6 +58,38 @@
                 <button id="create-proxy" class="btn btn-secondary" style="display: none;">Create Proxy</button>
             </div>
         </div>
+        <!-- Form for creating proxy contract -->
+        <form id="proxy-form" class="mb-4" style="display: none;">
+            <div class="mb-3">
+                <label for="executor-input" class="form-label">Executor Address</label>
+                <input type="text" class="form-control" id="executor-input" placeholder="Enter executor address">
+            </div>
+            <div class="mb-3">
+                <label for="sell-token-input" class="form-label">Sell Token Address</label>
+                <input type="text" class="form-control" id="sell-token-input" placeholder="Enter sell token address">
+            </div>
+            <div class="mb-3">
+                <label for="buy-token-input" class="form-label">Buy Token Address</label>
+                <input type="text" class="form-control" id="buy-token-input" placeholder="Enter buy token address">
+            </div>
+            <div class="mb-3">
+                <label for="quoter-input" class="form-label">Uniswap Quoter Address</label>
+                <input type="text" class="form-control" id="quoter-input" placeholder="Enter uniswap quoter address">
+            </div>
+            <div class="mb-3">
+                <label for="pool-fee-input" class="form-label">Pool Fee</label>
+                <input type="number" class="form-control" id="pool-fee-input" placeholder="Enter pool fee (e.g., 3000)">
+            </div>
+            <div class="mb-3">
+                <label for="max-swap-amount-input" class="form-label">Max Swap Amount</label>
+                <input type="number" class="form-control" id="max-swap-amount-input" placeholder="Enter max swap amount">
+            </div>
+            <div class="mb-3">
+                <label for="min-swap-interval-input" class="form-label">Min Swap Interval (in seconds)</label>
+                <input type="number" class="form-control" id="min-swap-interval-input" placeholder="Enter min swap interval">
+            </div>
+        </form>
+
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>

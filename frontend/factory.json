@@ -30,7 +30,43 @@
     "type": "event"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_executor",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_sellToken",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_buyToken",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_uniswapQuoter",
+        "type": "address"
+      },
+      {
+        "internalType": "uint24",
+        "name": "_uniswapPoolFee",
+        "type": "uint24"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxSwapAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_minSwapInterval",
+        "type": "uint256"
+      }
+    ],
     "name": "createProxy",
     "outputs": [
       {
