@@ -1,32 +1,69 @@
-let provider, proxyFactoryAddress, proxyFactoryABI, dcaABI, signer, userAddress;
+const AppState = {
+    DISCONNECTED: 'disconnected',
+    CONNECTED_NO_PROXY: 'connected_no_proxy',
+    CONNECTED_WITH_PROXY: 'connected_with_proxy',
+};
+
+let currentState = AppState.DISCONNECTED;
+let provider, signer, userAddress, proxyAddress, dcaContract;
+let proxyFactoryAddress, proxyFactoryABI, dcaABI;
 
 document.getElementById("provider-select").addEventListener("change", setupProvider);
-document.getElementById("connect-wallet").addEventListener("click", connectWallet);
+document.getElementById("network-select").addEventListener("change", setupProvider);
+document.getElementById("connect-wallet").addEventListener("click", handleWalletConnection);
 document.getElementById("create-proxy-button").addEventListener("click", createProxy);
 document.addEventListener("DOMContentLoaded", setupProvider);
-document.getElementById("create-proxy-form").addEventListener("submit", function(event) {
-    event.preventDefault(); // Prevent form from submitting and reloading the page
-    createProxy(); // Call the createProxy function instead
-});
 
-async function loadNetworkData(chainId) {
-    const networks = await fetch("networks.json").then(res => res.json());
-    proxyFactoryAddress = networks.networks[chainId]?.proxyFactoryAddress;
-    if (!proxyFactoryAddress) console.error("Unsupported network");
-}
+function updateUI() {
+    const connectButton = document.getElementById("connect-wallet");
+    const statusText = document.getElementById("status-text");
+    const createProxyForm = document.getElementById("create-proxy-form");
+    const proxyDetails = document.getElementById("proxy-details");
+    const setterCards = document.querySelectorAll(".setter-card");
 
-async function loadABI(file) {
-    return fetch(file).then(res => res.json());
+    switch (currentState) {
+        case AppState.DISCONNECTED:
+            statusText.innerText = "Not connected";
+            connectButton.innerText = "Connect Wallet";
+            connectButton.classList.remove("btn-danger");
+            connectButton.classList.add("btn-primary");
+            createProxyForm.style.display = "none";
+            proxyDetails.style.display = "none";
+            setterCards.forEach(card => card.style.display = "none");
+            break;
+
+        case AppState.CONNECTED_NO_PROXY:
+            statusText.innerText = `Connected as ${userAddress}\nNo proxy deployed`;
+            connectButton.innerText = "Disconnect Wallet";
+            connectButton.classList.remove("btn-primary");
+            connectButton.classList.add("btn-danger");
+            createProxyForm.style.display = "block";
+            proxyDetails.style.display = "none";
+            setterCards.forEach(card => card.style.display = "none");
+            break;
+
+        case AppState.CONNECTED_WITH_PROXY:
+            statusText.innerText = `Connected as ${userAddress}\nProxy deployed at: ${proxyAddress}`;
+            connectButton.innerText = "Disconnect Wallet";
+            connectButton.classList.remove("btn-primary");
+            connectButton.classList.add("btn-danger");
+            createProxyForm.style.display = "none";
+            proxyDetails.style.display = "block";
+            setterCards.forEach(card => card.style.display = "block");
+            break;
+    }
 }
 
 async function setupProvider() {
     const selectedProvider = document.getElementById("provider-select").value;
-    provider = selectedProvider === "metamask" && window.ethereum?.isMetaMask
-        ? new ethers.providers.Web3Provider(window.ethereum)
-        : selectedProvider === "rabby" && window.ethereum && !window.ethereum.isMetaMask
-        ? new ethers.providers.Web3Provider(window.ethereum)
-        : null;
-    
+    provider = null;
+
+    if (selectedProvider === "metamask" && window.ethereum?.isMetaMask) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+    } else if (selectedProvider === "rabby" && window.ethereum && !window.ethereum.isMetaMask) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+    }
+
     if (!provider) {
         alert("Selected provider not available or unable to differentiate.");
         return;
@@ -34,37 +71,36 @@ async function setupProvider() {
     signer = provider.getSigner();
 }
 
-async function connectWallet() {
-    const connectButton = document.getElementById("connect-wallet");
-
-    // If already connected, disconnect
-    if (userAddress) {
+async function handleWalletConnection() {
+    if (currentState === AppState.DISCONNECTED) {
+        await connectWallet();
+    } else {
         disconnectWallet();
-        return;
     }
+}
 
+async function connectWallet() {
     const chainId = document.getElementById("network-select").value;
     await loadNetworkData(chainId);
+
     proxyFactoryABI = await loadABI("factory.json");
     dcaABI = await loadABI("dca.json");
 
     if (!proxyFactoryABI || !dcaABI) return;
 
     try {
-        if ((await provider.listAccounts()).length === 0) await provider.send("eth_requestAccounts", []);
+        if ((await provider.listAccounts()).length === 0) {
+            await provider.send("eth_requestAccounts", []);
+        }
         userAddress = (await signer.getAddress()).toLowerCase();
-        document.getElementById("status-text").innerText = `Connected as ${userAddress}`;
-
-        // Change button to "Disconnect Wallet"
-        connectButton.innerText = "Disconnect Wallet";
-        connectButton.classList.replace("btn-primary", "btn-danger");
 
         await provider.provider.request({
             method: "wallet_switchEthereumChain",
-            params: [{ chainId: ethers.utils.hexValue(parseInt(chainId)) }]
+            params: [{ chainId: ethers.utils.hexValue(parseInt(chainId)) }],
         });
 
-        checkProxyStatus();
+        currentState = AppState.CONNECTED_NO_PROXY;
+        await checkProxyStatus();
     } catch (error) {
         console.error("Wallet connection failed", error);
     }
@@ -72,52 +108,39 @@ async function connectWallet() {
 
 function disconnectWallet() {
     userAddress = null;
-    document.getElementById("status-text").innerText = "Not connected";
-    document.getElementById("connect-wallet").innerText = "Connect Wallet";
-    document.getElementById("connect-wallet").classList.replace("btn-danger", "btn-primary");
+    proxyAddress = null;
+    dcaContract = null;
+    currentState = AppState.DISCONNECTED;
+    updateUI();
+}
 
-    // Hide proxy details and setter cards
-    document.getElementById("proxy-details").style.display = "none";
-    document.querySelectorAll(".setter-card").forEach(card => card.style.display = "none");
-    document.getElementById("create-proxy-form").style.display = "block";
+async function loadNetworkData(chainId) {
+    const networks = await fetch("networks.json").then(res => res.json());
+    proxyFactoryAddress = networks.networks[chainId]?.proxyFactoryAddress;
+    if (!proxyFactoryAddress) {
+        console.error("Unsupported network");
+    }
+}
+
+async function loadABI(file) {
+    return fetch(file).then(res => res.json());
 }
 
 async function checkProxyStatus() {
     const proxyFactory = new ethers.Contract(proxyFactoryAddress, proxyFactoryABI, signer);
     try {
         const hasProxy = await proxyFactory.hasProxy(userAddress);
-        const statusText = document.getElementById("status-text");
-        const createProxyForm = document.getElementById("create-proxy-form");
-        const proxyDetails = document.getElementById("proxy-details");
-
-        // Cards for setters
-        const setterCards = document.querySelectorAll(".setter-card");
 
         if (hasProxy) {
-            const proxyAddress = await proxyFactory.getProxy(userAddress);
-            window.proxyAddress = proxyAddress;
-            statusText.innerText = `Proxy deployed at: ${proxyAddress}`;
-            createProxyForm.style.display = "none";
-            proxyDetails.style.display = "block";
-
-            const dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer);
-            window.dcaContract = dcaContract;
-
-            // Show setter cards
-            setterCards.forEach(card => card.style.display = "block");
-
-            // Load field values into the static HTML elements
-            loadFieldValues(dcaContract);
+            proxyAddress = await proxyFactory.getProxy(userAddress);
+            dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer);
+            currentState = AppState.CONNECTED_WITH_PROXY;
+            await loadFieldValues(dcaContract);
         } else {
-            statusText.innerText = "No proxy deployed";
-            createProxyForm.style.display = "block";
-            proxyDetails.style.display = "none";
-
-            // Hide setter cards if no proxy is deployed
-            setterCards.forEach(card => card.style.display = "none");
-
+            currentState = AppState.CONNECTED_NO_PROXY;
             loadTestConfig();
         }
+        updateUI();
     } catch (error) {
         console.error("Error checking proxy status", error);
     }
@@ -134,20 +157,20 @@ async function loadFieldValues(contract) {
             uniswapPoolFee: 'uniswapPoolFeeSetter',
             maxSwapAmount: 'maxSwapAmountSetter',
             minSwapInterval: 'minSwapIntervalSetter',
-            lastSwapTime: 'lastSwapTime'
+            lastSwapTime: 'lastSwapTime',
         };
 
         for (const [contractField, elementId] of Object.entries(fields)) {
             let value = await contract[contractField]();
-            if (typeof value === 'object' && value.toString) {
+            if (ethers.BigNumber.isBigNumber(value)) {
                 value = value.toString();
             }
 
             const displayElement = document.getElementById(contractField);
-            if (displayElement) displayElement.innerText = value; // Update display fields
+            if (displayElement) displayElement.innerText = value;
 
             const inputElement = document.getElementById(elementId);
-            if (inputElement) inputElement.value = value; // Update setter input fields
+            if (inputElement) inputElement.value = value;
         }
     } catch (error) {
         console.error("Failed to load contract field values", error);
@@ -163,19 +186,14 @@ async function createProxy() {
             document.getElementById("buy-token-input").value,
             document.getElementById("quoter-input").value,
             parseInt(document.getElementById("pool-fee-input").value, 10),
-            ethers.utils.parseUnits(document.getElementById("max-swap-amount-input").value, 6),
-            parseInt(document.getElementById("min-swap-interval-input").value, 10)
+            ethers.BigNumber.from(document.getElementById("max-swap-amount-input").value),
+            ethers.BigNumber.from(document.getElementById("min-swap-interval-input").value),
         ];
 
         const tx = await proxyFactory.createProxy(...values);
-        const receipt = await tx.wait();
+        await tx.wait();
 
-        if (receipt.status === 0) {
-            console.error("Transaction failed");
-            return;
-        }
-
-        checkProxyStatus();
+        await checkProxyStatus();
     } catch (error) {
         console.error("Error creating proxy", error);
     }
@@ -184,7 +202,6 @@ async function createProxy() {
 async function loadTestConfig() {
     const config = await fetch("data/testConfig.json").then(res => res.json());
 
-    // Mapping each form field by its exact ID to the respective config value
     document.getElementById("executor-input").value = config.executorAddress;
     document.getElementById("sell-token-input").value = config.sellTokenAddress;
     document.getElementById("buy-token-input").value = config.buyTokenAddress;
@@ -194,14 +211,14 @@ async function loadTestConfig() {
     document.getElementById("min-swap-interval-input").value = config.minSwapInterval;
 }
 
-// Setter function handlers
+// Setter function handlers remain the same
 async function setExecutor() {
     const executor = document.getElementById("executorSetter").value;
     try {
         const tx = await dcaContract.setExecutor(executor);
         await tx.wait();
         alert("Executor updated successfully.");
-        loadFieldValues(dcaContract);
+        await loadFieldValues(dcaContract);
     } catch (error) {
         console.error("Failed to set executor", error);
         alert("Failed to set executor.");
@@ -216,7 +233,7 @@ async function setTokens() {
         const tx = await dcaContract.setTokens(sellToken, buyToken, uniswapPoolFee);
         await tx.wait();
         alert("Tokens updated successfully.");
-        loadFieldValues(dcaContract);
+        await loadFieldValues(dcaContract);
     } catch (error) {
         console.error("Failed to set tokens", error);
         alert("Failed to set tokens.");
@@ -230,7 +247,7 @@ async function setSwapParameters() {
         const tx = await dcaContract.setSwapParameters(maxSwapAmount, minSwapInterval);
         await tx.wait();
         alert("Swap parameters updated successfully.");
-        loadFieldValues(dcaContract);
+        await loadFieldValues(dcaContract);
     } catch (error) {
         console.error("Failed to set swap parameters", error);
         alert("Failed to set swap parameters.");
@@ -243,10 +260,9 @@ async function setQuoter() {
         const tx = await dcaContract.setQuoter(uniswapQuoter);
         await tx.wait();
         alert("Quoter updated successfully.");
-        loadFieldValues(dcaContract);
+        await loadFieldValues(dcaContract);
     } catch (error) {
         console.error("Failed to set quoter", error);
         alert("Failed to set quoter.");
     }
 }
-
