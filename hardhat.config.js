@@ -7,7 +7,11 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.4", // Add this older version for Uniswap dependencies
+        version: "0.8.4", // For Uniswap dependencies or other contracts needing this version
+        settings: {},
+      },
+      {
+        version: "0.8.20", // For OpenZeppelin contracts needing this version
         settings: {},
       },
     ],
