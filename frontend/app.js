@@ -9,7 +9,6 @@ document.getElementById("create-proxy-form").addEventListener("submit", function
     createProxy(); // Call the createProxy function instead
 });
 
-
 async function loadNetworkData(chainId) {
     const networks = await fetch("networks.json").then(res => res.json());
     proxyFactoryAddress = networks.networks[chainId]?.proxyFactoryAddress;
@@ -36,6 +35,14 @@ async function setupProvider() {
 }
 
 async function connectWallet() {
+    const connectButton = document.getElementById("connect-wallet");
+
+    // If already connected, disconnect
+    if (userAddress) {
+        disconnectWallet();
+        return;
+    }
+
     const chainId = document.getElementById("network-select").value;
     await loadNetworkData(chainId);
     proxyFactoryABI = await loadABI("factory.json");
@@ -43,113 +50,36 @@ async function connectWallet() {
 
     if (!proxyFactoryABI || !dcaABI) return;
 
-    if ((await provider.listAccounts()).length === 0) await provider.send("eth_requestAccounts", []);
-    userAddress = (await signer.getAddress()).toLowerCase();
-    document.getElementById("status-text").innerText = `Connected as ${userAddress}`;
-
     try {
+        if ((await provider.listAccounts()).length === 0) await provider.send("eth_requestAccounts", []);
+        userAddress = (await signer.getAddress()).toLowerCase();
+        document.getElementById("status-text").innerText = `Connected as ${userAddress}`;
+
+        // Change button to "Disconnect Wallet"
+        connectButton.innerText = "Disconnect Wallet";
+        connectButton.classList.replace("btn-primary", "btn-danger");
+
         await provider.provider.request({
             method: "wallet_switchEthereumChain",
             params: [{ chainId: ethers.utils.hexValue(parseInt(chainId)) }]
         });
-    } catch (switchError) {
-        console.error("Network switch failed", switchError);
+
+        checkProxyStatus();
+    } catch (error) {
+        console.error("Wallet connection failed", error);
     }
-
-    checkProxyStatus();
 }
 
-function parseABI(abi) {
-    const config = { fields: [], groups: {} };
-    const excludeFunctions = ['initialize'];
-    const includeFunctions = ['setExecutor', 'setTokens', 'setSwapParameters', 'setQuoter'];
+function disconnectWallet() {
+    userAddress = null;
+    document.getElementById("status-text").innerText = "Not connected";
+    document.getElementById("connect-wallet").innerText = "Connect Wallet";
+    document.getElementById("connect-wallet").classList.replace("btn-danger", "btn-primary");
 
-    abi.forEach(item => {
-        if (excludeFunctions.includes(item.name)) {
-            // Skip excluded functions
-            return;
-        }
-
-        if (item.stateMutability === "view" && item.outputs?.length === 1) {
-            config.fields.push({
-                name: item.name,
-                label: formatLabel(item.name),
-                type: item.outputs[0].type,
-                group: "view"
-            });
-        } else if (
-            item.stateMutability === "nonpayable" &&
-            item.inputs?.length > 0 &&
-            includeFunctions.includes(item.name)
-        ) {
-            config.groups[item.name] = { fields: item.inputs.map(input => input.name), setter: item.name };
-            item.inputs.forEach(input => {
-                config.fields.push({
-                    name: `${item.name}_${input.name}`, // Ensure unique IDs
-                    label: formatLabel(input.name),
-                    type: input.type,
-                    group: item.name
-                });
-            });
-        }
-    });
-    return config;
-}
-
-function formatLabel(name) {
-    // Convert camelCase or snake_case to Proper Case with spaces
-    const spacedName = name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ');
-    return spacedName.charAt(0).toUpperCase() + spacedName.slice(1);
-}
-
-function renderFields(config) {
-    const container = document.getElementById("proxy-details");
-    container.innerHTML = ""; 
-
-    // Render view fields
-    container.innerHTML += `<h4>Contract Information</h4>`;
-    config.fields.filter(field => field.group === "view").forEach(field => {
-        container.innerHTML += `
-            <div class="mb-3">
-                <label>${field.label}</label>
-                <span id="${field.name}" class="form-control">Loading...</span>
-            </div>`;
-    });
-
-    // Render groups (nonpayable functions with inputs)
-    Object.keys(config.groups).forEach(group => {
-        const groupContainer = document.createElement("div");
-        groupContainer.classList.add("field-group");
-        groupContainer.innerHTML += `<h5>${formatLabel(group)}</h5>`;
-        config.fields.filter(f => f.group === group).forEach(field => {
-            groupContainer.innerHTML += `
-                <div class="mb-3">
-                    <label for="${field.name}" class="form-label">${field.label}</label>
-                    <input type="${field.type === 'address' ? 'text' : 'number'}" 
-                           placeholder="${field.label}" 
-                           id="${field.name}" 
-                           class="form-control">
-                </div>`;
-        });
-        groupContainer.innerHTML += `
-            <button class="btn btn-primary mb-3" onclick="setFields('${group}')">${formatLabel(group)}</button>`;
-        container.appendChild(groupContainer);
-    });
-}
-
-async function loadFieldValues(config, contract) {
-    const viewFields = config.fields.filter(field => field.group === "view");
-    for (const field of viewFields) {
-        try {
-            let value = await contract[field.name]();
-            if (field.type.startsWith('uint') || field.type.startsWith('int')) {
-                value = value.toString(); // Convert BigNumber to string
-            }
-            document.getElementById(field.name).innerText = value;
-        } catch (error) {
-            console.error(`Failed to load value for ${field.name}`, error);
-        }
-    }
+    // Hide proxy details and setter cards
+    document.getElementById("proxy-details").style.display = "none";
+    document.querySelectorAll(".setter-card").forEach(card => card.style.display = "none");
+    document.getElementById("create-proxy-form").style.display = "block";
 }
 
 async function checkProxyStatus() {
@@ -160,27 +90,67 @@ async function checkProxyStatus() {
         const createProxyForm = document.getElementById("create-proxy-form");
         const proxyDetails = document.getElementById("proxy-details");
 
+        // Cards for setters
+        const setterCards = document.querySelectorAll(".setter-card");
+
         if (hasProxy) {
             const proxyAddress = await proxyFactory.getProxy(userAddress);
-            window.proxyAddress = proxyAddress; // Store in global variable
+            window.proxyAddress = proxyAddress;
             statusText.innerText = `Proxy deployed at: ${proxyAddress}`;
             createProxyForm.style.display = "none";
-            proxyDetails.style.display = "block"; // Show the proxy details container
+            proxyDetails.style.display = "block";
 
             const dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer);
-            window.dcaContract = dcaContract; // Store in global variable
-            const dcaConfig = parseABI(dcaABI);
-            window.dcaConfig = dcaConfig; // Store in global variable
-            renderFields(dcaConfig);
-            loadFieldValues(dcaConfig, dcaContract);
+            window.dcaContract = dcaContract;
+
+            // Show setter cards
+            setterCards.forEach(card => card.style.display = "block");
+
+            // Load field values into the static HTML elements
+            loadFieldValues(dcaContract);
         } else {
             statusText.innerText = "No proxy deployed";
             createProxyForm.style.display = "block";
-            proxyDetails.style.display = "none"; // Hide the proxy details container
+            proxyDetails.style.display = "none";
+
+            // Hide setter cards if no proxy is deployed
+            setterCards.forEach(card => card.style.display = "none");
+
             loadTestConfig();
         }
     } catch (error) {
         console.error("Error checking proxy status", error);
+    }
+}
+
+async function loadFieldValues(contract) {
+    try {
+        const fields = {
+            owner: 'owner',
+            executor: 'executorSetter',
+            sellToken: 'sellTokenSetter',
+            buyToken: 'buyTokenSetter',
+            uniswapQuoter: 'uniswapQuoterSetter',
+            uniswapPoolFee: 'uniswapPoolFeeSetter',
+            maxSwapAmount: 'maxSwapAmountSetter',
+            minSwapInterval: 'minSwapIntervalSetter',
+            lastSwapTime: 'lastSwapTime'
+        };
+
+        for (const [contractField, elementId] of Object.entries(fields)) {
+            let value = await contract[contractField]();
+            if (typeof value === 'object' && value.toString) {
+                value = value.toString();
+            }
+
+            const displayElement = document.getElementById(contractField);
+            if (displayElement) displayElement.innerText = value; // Update display fields
+
+            const inputElement = document.getElementById(elementId);
+            if (inputElement) inputElement.value = value; // Update setter input fields
+        }
+    } catch (error) {
+        console.error("Failed to load contract field values", error);
     }
 }
 
@@ -211,7 +181,6 @@ async function createProxy() {
     }
 }
 
-
 async function loadTestConfig() {
     const config = await fetch("data/testConfig.json").then(res => res.json());
 
@@ -225,27 +194,59 @@ async function loadTestConfig() {
     document.getElementById("min-swap-interval-input").value = config.minSwapInterval;
 }
 
-async function setFields(group) {
-    const config = window.dcaConfig;
-    const dcaContract = window.dcaContract;
-    const fieldNames = config.groups[group].fields;
-    const values = fieldNames.map(name => {
-        const field = config.fields.find(f => f.name === `${group}_${name}`);
-        let value = document.getElementById(`${group}_${name}`).value;
-        if (field.type.startsWith('uint')) {
-            value = ethers.BigNumber.from(value);
-        }
-        return value;
-    });
+// Setter function handlers
+async function setExecutor() {
+    const executor = document.getElementById("executorSetter").value;
     try {
-        const tx = await dcaContract[config.groups[group].setter](...values);
+        const tx = await dcaContract.setExecutor(executor);
         await tx.wait();
-        // Optionally, update the displayed values
-        loadFieldValues(config, dcaContract);
-        alert(`${formatLabel(group)} updated successfully.`);
+        alert("Executor updated successfully.");
+        loadFieldValues(dcaContract);
     } catch (error) {
-        console.error(`Failed to set fields for ${group}`, error);
-        alert(`Failed to set ${formatLabel(group)}.`);
+        console.error("Failed to set executor", error);
+        alert("Failed to set executor.");
+    }
+}
+
+async function setTokens() {
+    const sellToken = document.getElementById("sellTokenSetter").value;
+    const buyToken = document.getElementById("buyTokenSetter").value;
+    const uniswapPoolFee = parseInt(document.getElementById("uniswapPoolFeeSetter").value, 10);
+    try {
+        const tx = await dcaContract.setTokens(sellToken, buyToken, uniswapPoolFee);
+        await tx.wait();
+        alert("Tokens updated successfully.");
+        loadFieldValues(dcaContract);
+    } catch (error) {
+        console.error("Failed to set tokens", error);
+        alert("Failed to set tokens.");
+    }
+}
+
+async function setSwapParameters() {
+    const maxSwapAmount = ethers.BigNumber.from(document.getElementById("maxSwapAmountSetter").value);
+    const minSwapInterval = ethers.BigNumber.from(document.getElementById("minSwapIntervalSetter").value);
+    try {
+        const tx = await dcaContract.setSwapParameters(maxSwapAmount, minSwapInterval);
+        await tx.wait();
+        alert("Swap parameters updated successfully.");
+        loadFieldValues(dcaContract);
+    } catch (error) {
+        console.error("Failed to set swap parameters", error);
+        alert("Failed to set swap parameters.");
+    }
+}
+
+async function setQuoter() {
+    const uniswapQuoter = document.getElementById("uniswapQuoterSetter").value;
+    try {
+        const tx = await dcaContract.setQuoter(uniswapQuoter);
+        await tx.wait();
+        alert("Quoter updated successfully.");
+        loadFieldValues(dcaContract);
+    } catch (error) {
+        console.error("Failed to set quoter", error);
+        alert("Failed to set quoter.");
     }
 }
 

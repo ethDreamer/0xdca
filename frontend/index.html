@@ -11,11 +11,12 @@
             font-family: Arial, sans-serif;
         }
         .container {
-            max-width: 500px;
+            max-width: 700px;
         }
         .card {
             border: none;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin-bottom: 1.5rem;
         }
         .btn-primary {
             font-weight: 600;
@@ -46,15 +47,22 @@
     <div class="container my-5">
         <div class="text-center mb-4">
             <h1 class="display-6 text-primary">0xDCA Contract Manager</h1>
-            <p class="lead text-secondary">Manage your decentralized contract interactions easily.</p>
+            <p class="lead text-secondary">Manage your Trading Schedule</p>
         </div>
+
+        <!-- Proxy Connection Status Card -->
         <div class="card p-4">
             <div class="card-body text-center">
                 <h5 class="card-title text-secondary">Proxy Contract Status</h5>
                 <p id="status-text" class="text-muted">Not connected</p>
                 <button id="connect-wallet" class="btn btn-primary btn-lg mb-3">Connect Wallet</button>
             </div>
-            <form id="create-proxy-form" style="display: none;">
+        </div>
+
+        <!-- Proxy Creation Form Card -->
+        <div class="card p-4" id="create-proxy-form" style="display: none;">
+            <h5 class="card-title">Create Proxy</h5>
+            <form>
                 <div class="mb-3">
                     <label for="executor-input" class="form-label">Executor Address</label>
                     <input type="text" class="form-control" id="executor-input" placeholder="Enter executor address">
@@ -85,12 +93,102 @@
                 </div>
                 <button type="button" id="create-proxy-button" class="btn btn-secondary">Create Proxy</button>
             </form>
+        </div>
 
-            <div id="proxy-details" class="card p-4" style="display: none;">
-                <!-- The fields will be rendered here -->
+        <!-- Proxy Details and Contract Information -->
+        <div class="card p-4" id="proxy-details" style="display: none;">
+            <h4>Contract Information</h4>
+            <div class="mb-3">
+                <label>Owner</label>
+                <span id="owner" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Executor</label>
+                <span id="executor" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Sell Token</label>
+                <span id="sellToken" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Buy Token</label>
+                <span id="buyToken" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Uniswap Quoter</label>
+                <span id="uniswapQuoter" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Uniswap Pool Fee</label>
+                <span id="uniswapPoolFee" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Max Swap Amount</label>
+                <span id="maxSwapAmount" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Min Swap Interval</label>
+                <span id="minSwapInterval" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
+                <label>Last Swap Time</label>
+                <span id="lastSwapTime" class="form-control">Loading...</span>
             </div>
         </div>
+
+        <!-- Set Executor Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Executor</h5>
+            <div class="mb-3">
+                <label for="executorSetter" class="form-label">Executor</label>
+                <input type="text" id="executorSetter" class="form-control">
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setExecutor()">Set Executor</button>
+        </div>
+
+        <!-- Set Tokens Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Tokens</h5>
+            <div class="mb-3">
+                <label for="sellTokenSetter" class="form-label">Sell Token</label>
+                <input type="text" id="sellTokenSetter" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="buyTokenSetter" class="form-label">Buy Token</label>
+                <input type="text" id="buyTokenSetter" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="uniswapPoolFeeSetter" class="form-label">Uniswap Pool Fee</label>
+                <input type="number" id="uniswapPoolFeeSetter" class="form-control">
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setTokens()">Set Tokens</button>
+        </div>
+
+        <!-- Set Swap Parameters Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Swap Parameters</h5>
+            <div class="mb-3">
+                <label for="maxSwapAmountSetter" class="form-label">Max Swap Amount</label>
+                <input type="number" id="maxSwapAmountSetter" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="minSwapIntervalSetter" class="form-label">Min Swap Interval</label>
+                <input type="number" id="minSwapIntervalSetter" class="form-control">
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setSwapParameters()">Set Swap Parameters</button>
+        </div>
+
+        <!-- Set Quoter Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Quoter</h5>
+            <div class="mb-3">
+                <label for="uniswapQuoterSetter" class="form-label">Uniswap Quoter</label>
+                <input type="text" id="uniswapQuoterSetter" class="form-control">
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setQuoter()">Set Quoter</button>
+        </div>
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
