@@ -9,6 +9,7 @@ document.getElementById("provider-select").addEventListener("change", async (eve
     await setupProvider();
     console.log("Provider changed to:", event.target.value);
 });
+    
 
 // Load network data
 async function loadNetworkData(chainId) {
@@ -31,6 +32,32 @@ async function loadFactoryABI() {
 async function loadDCAABI() {
     const response = await fetch("dca.json");
     dcaABI = await response.json();
+}
+
+// Parse ABI for UI Configuration
+function parseABI(abi) {
+    const config = { fields: [], groups: {} };
+    abi.forEach(item => {
+        if (item.stateMutability === "view" && item.outputs && item.outputs.length === 1) {
+            config.fields.push({
+                name: item.name,
+                label: item.name.charAt(0).toUpperCase() + item.name.slice(1),
+                type: item.outputs[0].type,
+                group: "view"
+            });
+        } else if (item.stateMutability === "nonpayable" && item.inputs && item.inputs.length > 0) {
+            config.groups[item.name] = { fields: item.inputs.map(input => input.name), setter: item.name };
+            item.inputs.forEach(input => {
+                config.fields.push({
+                    name: input.name,
+                    label: input.name.charAt(0).toUpperCase() + input.name.slice(1),
+                    type: input.type,
+                    group: item.name
+                });
+            });
+        }
+    });
+    return config;
 }
 
 // Set up provider based on selection
@@ -56,14 +83,9 @@ async function connectWallet() {
     if (!proxyFactoryABI) await loadFactoryABI();
     await setupProvider();
 
-    // Explicitly request accounts
+    // Request accounts
     const accounts = await provider.listAccounts();
-    if (accounts.length === 0) {
-        // Prompt the user to connect their wallet
-        await provider.send("eth_requestAccounts", []);
-    }
-
-    // Re-check for accounts and initialize signer
+    if (accounts.length === 0) await provider.send("eth_requestAccounts", []);
     userAddress = (await signer.getAddress()).toLowerCase();
     document.getElementById("status-text").innerText = `Connected as ${userAddress}`;
 
@@ -74,39 +96,73 @@ async function connectWallet() {
             params: [{ chainId: hexChainId }]
         });
     } catch (switchError) {
-        if (switchError.code === 4902) {
-            const networkData = await loadNetworkData(chainId);
-            try {
-                await provider.provider.request({
-                    method: "wallet_addEthereumChain",
-                    params: [
-                        {
-                            chainId: hexChainId,
-                            chainName: networkData.chainName,
-                            nativeCurrency: {
-                                name: networkData.nativeCurrency.name,
-                                symbol: networkData.nativeCurrency.symbol,
-                                decimals: networkData.nativeCurrency.decimals,
-                            },
-                            rpcUrls: [networkData.rpcUrl],
-                            blockExplorerUrls: [networkData.blockExplorerUrl]
-                        }
-                    ]
-                });
-            } catch (addError) {
-                console.error("Failed to add network", addError);
-            }
-        } else {
-            console.error("Failed to switch network", switchError);
-        }
+        console.error("Failed to switch network", switchError);
     }
 
     checkProxyStatus();
 }
 
+// Dynamically render UI elements based on ABI
+function renderFields(config) {
+    const container = document.getElementById("proxy-form");
+    container.innerHTML = ""; // Clear previous content if any
+
+    console.log("config: ", config);
+
+    // Render getter fields (view)
+    config.fields.forEach(field => {
+        if (field.group === "view") {
+            const fieldElement = document.createElement("div");
+            fieldElement.classList.add("mb-3");
+            fieldElement.innerHTML = `
+                <label>${field.label}</label>
+                <span id="${field.name}" class="form-control">Loading...</span>
+            `;
+            container.appendChild(fieldElement);
+        }
+    });
+
+    // Render setter fields with form elements
+    Object.keys(config.groups).forEach(group => {
+        const groupFields = config.fields.filter(f => f.group === group);
+        const groupContainer = document.createElement("div");
+        groupContainer.classList.add("field-group");
+
+        groupFields.forEach(field => {
+            const fieldInput = document.createElement("input");
+            fieldInput.type = field.type === "address" ? "text" : "number";
+            fieldInput.placeholder = field.label;
+            fieldInput.id = field.name;
+            fieldInput.classList.add("form-control", "mb-3");
+            groupContainer.appendChild(fieldInput);
+        });
+
+        const submitButton = document.createElement("button");
+        submitButton.innerText = `Set ${group}`;
+        submitButton.classList.add("btn", "btn-primary", "mb-3");
+        submitButton.onclick = async () => {
+            const values = groupFields.map(f => document.getElementById(f.name).value);
+            const contract = new ethers.Contract(proxyFactoryAddress, dcaABI, signer);
+            await contract[config.groups[group].setter](...values);
+        };
+        groupContainer.appendChild(submitButton);
+        container.appendChild(groupContainer);
+    });
+}
+
+// Load and display getter values
+async function loadFieldValues(config, contract) {
+    config.fields.filter(field => field.group === "view").forEach(async field => {
+        try {
+            const value = await contract[field.name]();
+            document.getElementById(field.name).innerText = value;
+        } catch (error) {
+            console.error("Failed to load value for", field.name, error);
+        }
+    });
+}
+
 async function checkProxyStatus() {
-    console.log("proxyFactoryAddress:", proxyFactoryAddress);
-    console.log("signer: ", signer);
     const proxyFactoryContract = new ethers.Contract(proxyFactoryAddress, proxyFactoryABI, signer);
 
     try {
@@ -115,20 +171,23 @@ async function checkProxyStatus() {
             const proxyAddress = await proxyFactoryContract.getProxy(userAddress);
             document.getElementById("status-text").innerText = `Proxy deployed at: ${proxyAddress}`;
             document.getElementById("create-proxy").style.display = "none";
-            document.getElementById("proxy-form").style.display = "none"; // Hide the form
+            document.getElementById("proxy-form").style.display = "block"; // Ensure form is displayed
+            console.log("Proxy address: ", proxyAddress);
+            if (!dcaABI) await loadDCAABI();
+            const dcaConfig = parseABI(dcaABI); // Parse ABI for fields
+            renderFields(dcaConfig); // Render fields based on parsed config
+            const dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer); // Create contract instance
+            loadFieldValues(dcaConfig, dcaContract); // Load field values for getters
         } else {
             document.getElementById("status-text").innerText = "No proxy deployed";
             document.getElementById("create-proxy").style.display = "block";
-            document.getElementById("proxy-form").style.display = "block"; // Show the form
-
+            document.getElementById("proxy-form").style.display = "block";
             // for testing
-            loadTestConfig()
+            loadTestConfig();
         }
     } catch (error) {
         console.error("Error checking proxy status:", error);
         document.getElementById("status-text").innerText = "Error checking proxy status.";
-        document.getElementById("create-proxy").style.display = "none";
-        document.getElementById("proxy-form").style.display = "none"; // Hide the form
     }
 }
 
@@ -176,7 +235,7 @@ async function loadTestConfig() {
     document.getElementById("pool-fee-input").value = config.poolFee;
     document.getElementById("max-swap-amount-input").value = config.maxSwapAmount;
     document.getElementById("min-swap-interval-input").value = config.minSwapInterval;
-}
+}    
 
 // Event listeners
 document.getElementById("connect-wallet").addEventListener("click", connectWallet);
