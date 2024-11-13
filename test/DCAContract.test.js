@@ -81,8 +81,8 @@ describe("DCAContract", function () {
   it("should deploy and execute swap on DCAContract", async function () {
     // Deploy the DCA contract from the owner
     const DCAContract = await ethers.getContractFactory("DCAContract");
-    const maxSwapAmount = ethers.parseUnits("1000", 6);
-    const minSwapInterval = 30;
+    const swapAmount = ethers.parseUnits("1000", 6);
+    const swapInterval = 30;
     const poolFee = await allpools(1, sellToken, buyToken);
 
     const dca = await DCAContract.connect(owner).deploy(
@@ -91,8 +91,8 @@ describe("DCAContract", function () {
         buyToken,
         process.env.UNISWAP_QUOTER,
         poolFee,
-        maxSwapAmount,
-        minSwapInterval
+        swapAmount,
+        swapInterval
     );
     await dca.waitForDeployment();
 

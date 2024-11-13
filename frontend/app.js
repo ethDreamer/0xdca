@@ -155,8 +155,8 @@ async function loadFieldValues(contract) {
             buyToken: 'buyTokenSetter',
             uniswapQuoter: 'uniswapQuoterSetter',
             uniswapPoolFee: 'uniswapPoolFeeSetter',
-            maxSwapAmount: 'maxSwapAmountSetter',
-            minSwapInterval: 'minSwapIntervalSetter',
+            swapAmount: 'swapAmountSetter',
+            swapInterval: 'swapIntervalSetter',
             lastSwapTime: 'lastSwapTime',
         };
 
@@ -186,8 +186,8 @@ async function createProxy() {
             document.getElementById("buy-token-input").value,
             document.getElementById("quoter-input").value,
             parseInt(document.getElementById("pool-fee-input").value, 10),
-            ethers.BigNumber.from(document.getElementById("max-swap-amount-input").value),
-            ethers.BigNumber.from(document.getElementById("min-swap-interval-input").value),
+            ethers.BigNumber.from(document.getElementById("swap-amount-input").value),
+            ethers.BigNumber.from(document.getElementById("swap-interval-input").value),
         ];
 
         const tx = await proxyFactory.createProxy(...values);
@@ -207,8 +207,8 @@ async function loadTestConfig() {
     document.getElementById("buy-token-input").value = config.buyTokenAddress;
     document.getElementById("quoter-input").value = config.uniswapQuoterAddress;
     document.getElementById("pool-fee-input").value = config.poolFee;
-    document.getElementById("max-swap-amount-input").value = config.maxSwapAmount;
-    document.getElementById("min-swap-interval-input").value = config.minSwapInterval;
+    document.getElementById("swap-amount-input").value = config.swapAmount;
+    document.getElementById("swap-interval-input").value = config.swapInterval;
 }
 
 // Setter function handlers remain the same
@@ -241,10 +241,10 @@ async function setTokens() {
 }
 
 async function setSwapParameters() {
-    const maxSwapAmount = ethers.BigNumber.from(document.getElementById("maxSwapAmountSetter").value);
-    const minSwapInterval = ethers.BigNumber.from(document.getElementById("minSwapIntervalSetter").value);
+    const swapAmount = ethers.BigNumber.from(document.getElementById("swapAmountSetter").value);
+    const swapInterval = ethers.BigNumber.from(document.getElementById("swapIntervalSetter").value);
     try {
-        const tx = await dcaContract.setSwapParameters(maxSwapAmount, minSwapInterval);
+        const tx = await dcaContract.setSwapParameters(swapAmount, swapInterval);
         await tx.wait();
         alert("Swap parameters updated successfully.");
         await loadFieldValues(dcaContract);

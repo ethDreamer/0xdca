@@ -58,12 +58,12 @@
       },
       {
         "internalType": "uint256",
-        "name": "_maxSwapAmount",
+        "name": "_swapAmount",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_minSwapInterval",
+        "name": "_swapInterval",
         "type": "uint256"
       }
     ],

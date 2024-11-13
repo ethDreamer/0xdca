@@ -87,12 +87,12 @@
       },
       {
         "internalType": "uint256",
-        "name": "_maxSwapAmount",
+        "name": "_swapAmount",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_minSwapInterval",
+        "name": "_swapInterval",
         "type": "uint256"
       }
     ],
@@ -116,7 +116,7 @@
   },
   {
     "inputs": [],
-    "name": "maxSwapAmount",
+    "name": "swapAmount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -129,7 +129,7 @@
   },
   {
     "inputs": [],
-    "name": "minSwapInterval",
+    "name": "swapInterval",
     "outputs": [
       {
         "internalType": "uint256",
@@ -196,12 +196,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_maxSwapAmount",
+        "name": "_swapAmount",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_minSwapInterval",
+        "name": "_swapInterval",
         "type": "uint256"
       }
     ],

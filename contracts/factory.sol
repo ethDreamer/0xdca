@@ -20,8 +20,8 @@ contract DCAProxyFactory {
         address _buyToken,
         address _uniswapQuoter,
         uint24 _uniswapPoolFee,
-        uint256 _maxSwapAmount,
-        uint256 _minSwapInterval
+        uint256 _swapAmount,
+        uint256 _swapInterval
     ) external returns (address) {
         require(userProxies[msg.sender] == address(0), "Proxy already exists for this address");
 
@@ -35,8 +35,8 @@ contract DCAProxyFactory {
             _buyToken,         // _buyToken
             _uniswapQuoter,    // _uniswapQuoter
             _uniswapPoolFee,   // _uniswapPoolFee
-            _maxSwapAmount,    // _maxSwapAmount
-            _minSwapInterval   // _minSwapInterval
+            _swapAmount,    // _swapAmount
+            _swapInterval   // _swapInterval
         );
 
         userProxies[msg.sender] = proxy;

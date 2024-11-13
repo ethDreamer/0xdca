@@ -46,8 +46,8 @@ contract DCAContract {
     address public uniswapQuoter;
     uint24 public uniswapPoolFee;
 
-    uint256 public maxSwapAmount;
-    uint256 public minSwapInterval;
+    uint256 public swapAmount;
+    uint256 public swapInterval;
     uint256 public lastSwapTime;
 
     bool private initialized;
@@ -69,8 +69,8 @@ contract DCAContract {
         address _buyToken,
         address _uniswapQuoter,
         uint24 _uniswapPoolFee,
-        uint256 _maxSwapAmount,
-        uint256 _minSwapInterval
+        uint256 _swapAmount,
+        uint256 _swapInterval
     ) external {
         require(!initialized, "Already initialized");
         owner = _owner;
@@ -79,8 +79,8 @@ contract DCAContract {
         buyToken = _buyToken;
         uniswapQuoter = _uniswapQuoter;
         uniswapPoolFee = _uniswapPoolFee;
-        maxSwapAmount = _maxSwapAmount;
-        minSwapInterval = _minSwapInterval;
+        swapAmount = _swapAmount;
+        swapInterval = _swapInterval;
         initialized = true;
     }
 
@@ -101,9 +101,9 @@ contract DCAContract {
     }
 
     // Allows the owner to update swap parameters
-    function setSwapParameters(uint256 _maxSwapAmount, uint256 _minSwapInterval) external onlyOwner {
-        maxSwapAmount = _maxSwapAmount;
-        minSwapInterval = _minSwapInterval;
+    function setSwapParameters(uint256 _swapAmount, uint256 _swapInterval) external onlyOwner {
+        swapAmount = _swapAmount;
+        swapInterval = _swapInterval;
     }
 
     function setQuoter(address _uniswapQuoter) external onlyOwner {
@@ -147,8 +147,8 @@ contract DCAContract {
         uint256 sellAmount,
         bytes calldata swapData // Contains the call data to pass to the 0x Exchange
     ) external onlyExecutor {
-        require(block.timestamp >= lastSwapTime + minSwapInterval, "Swap interval not reached");
-        require(sellAmount <= maxSwapAmount, "Sell amount exceeds max limit");
+        require(block.timestamp >= lastSwapTime + swapInterval, "Swap interval not reached");
+        require(sellAmount <= swapAmount, "Sell amount exceeds max limit");
 
         lastSwapTime = block.timestamp;
 
