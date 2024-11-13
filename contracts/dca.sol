@@ -100,15 +100,6 @@ contract DCAContract {
         uniswapPoolFee = _uniswapPoolFee;
     }
 
-    // Public getter functions for the sellToken and buyToken
-    function getSellToken() external view returns (address) {
-        return sellToken;
-    }
-
-    function getBuyToken() external view returns (address) {
-        return buyToken;
-    }
-
     // Allows the owner to update swap parameters
     function setSwapParameters(uint256 _maxSwapAmount, uint256 _minSwapInterval) external onlyOwner {
         maxSwapAmount = _maxSwapAmount;

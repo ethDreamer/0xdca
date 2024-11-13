@@ -61,20 +61,32 @@ async function connectWallet() {
 
 function parseABI(abi) {
     const config = { fields: [], groups: {} };
+    const excludeFunctions = ['initialize'];
+    const includeFunctions = ['setExecutor', 'setTokens', 'setSwapParameters', 'setQuoter'];
+
     abi.forEach(item => {
+        if (excludeFunctions.includes(item.name)) {
+            // Skip excluded functions
+            return;
+        }
+
         if (item.stateMutability === "view" && item.outputs?.length === 1) {
             config.fields.push({
                 name: item.name,
-                label: item.name.charAt(0).toUpperCase() + item.name.slice(1),
+                label: formatLabel(item.name),
                 type: item.outputs[0].type,
                 group: "view"
             });
-        } else if (item.stateMutability === "nonpayable" && item.inputs?.length > 0) {
+        } else if (
+            item.stateMutability === "nonpayable" &&
+            item.inputs?.length > 0 &&
+            includeFunctions.includes(item.name)
+        ) {
             config.groups[item.name] = { fields: item.inputs.map(input => input.name), setter: item.name };
             item.inputs.forEach(input => {
                 config.fields.push({
-                    name: input.name,
-                    label: input.name.charAt(0).toUpperCase() + input.name.slice(1),
+                    name: `${item.name}_${input.name}`, // Ensure unique IDs
+                    label: formatLabel(input.name),
                     type: input.type,
                     group: item.name
                 });
@@ -84,44 +96,60 @@ function parseABI(abi) {
     return config;
 }
 
+function formatLabel(name) {
+    // Convert camelCase or snake_case to Proper Case with spaces
+    const spacedName = name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ');
+    return spacedName.charAt(0).toUpperCase() + spacedName.slice(1);
+}
+
 function renderFields(config) {
     const container = document.getElementById("proxy-details");
     container.innerHTML = ""; 
 
-    config.fields.forEach(field => {
-        if (field.group === "view") {
-            container.innerHTML += `
-                <div class="mb-3">
-                    <label>${field.label}</label>
-                    <span id="${field.name}" class="form-control">Loading...</span>
-                </div>`;
-        }
+    // Render view fields
+    container.innerHTML += `<h4>Contract Information</h4>`;
+    config.fields.filter(field => field.group === "view").forEach(field => {
+        container.innerHTML += `
+            <div class="mb-3">
+                <label>${field.label}</label>
+                <span id="${field.name}" class="form-control">Loading...</span>
+            </div>`;
     });
 
+    // Render groups (nonpayable functions with inputs)
     Object.keys(config.groups).forEach(group => {
         const groupContainer = document.createElement("div");
         groupContainer.classList.add("field-group");
+        groupContainer.innerHTML += `<h5>${formatLabel(group)}</h5>`;
         config.fields.filter(f => f.group === group).forEach(field => {
             groupContainer.innerHTML += `
-                <input type="${field.type === 'address' ? 'text' : 'number'}" 
-                       placeholder="${field.label}" 
-                       id="${field.name}" 
-                       class="form-control mb-3">`;
+                <div class="mb-3">
+                    <label for="${field.name}" class="form-label">${field.label}</label>
+                    <input type="${field.type === 'address' ? 'text' : 'number'}" 
+                           placeholder="${field.label}" 
+                           id="${field.name}" 
+                           class="form-control">
+                </div>`;
         });
         groupContainer.innerHTML += `
-            <button class="btn btn-primary mb-3" onclick="setFields('${group}')">Set ${group}</button>`;
+            <button class="btn btn-primary mb-3" onclick="setFields('${group}')">${formatLabel(group)}</button>`;
         container.appendChild(groupContainer);
     });
 }
 
 async function loadFieldValues(config, contract) {
-    config.fields.filter(field => field.group === "view").forEach(async field => {
+    const viewFields = config.fields.filter(field => field.group === "view");
+    for (const field of viewFields) {
         try {
-            document.getElementById(field.name).innerText = await contract[field.name]();
+            let value = await contract[field.name]();
+            if (field.type.startsWith('uint') || field.type.startsWith('int')) {
+                value = value.toString(); // Convert BigNumber to string
+            }
+            document.getElementById(field.name).innerText = value;
         } catch (error) {
             console.error(`Failed to load value for ${field.name}`, error);
         }
-    });
+    }
 }
 
 async function checkProxyStatus() {
@@ -134,12 +162,15 @@ async function checkProxyStatus() {
 
         if (hasProxy) {
             const proxyAddress = await proxyFactory.getProxy(userAddress);
+            window.proxyAddress = proxyAddress; // Store in global variable
             statusText.innerText = `Proxy deployed at: ${proxyAddress}`;
             createProxyForm.style.display = "none";
             proxyDetails.style.display = "block"; // Show the proxy details container
 
             const dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer);
+            window.dcaContract = dcaContract; // Store in global variable
             const dcaConfig = parseABI(dcaABI);
+            window.dcaConfig = dcaConfig; // Store in global variable
             renderFields(dcaConfig);
             loadFieldValues(dcaConfig, dcaContract);
         } else {
@@ -195,8 +226,26 @@ async function loadTestConfig() {
 }
 
 async function setFields(group) {
-    const config = parseABI(dcaABI);
-    const dcaContract = new ethers.Contract(proxyAddress, dcaABI, signer);
-    const values = config.groups[group].fields.map(name => document.getElementById(name).value);
-    await dcaContract[config.groups[group].setter](...values);
+    const config = window.dcaConfig;
+    const dcaContract = window.dcaContract;
+    const fieldNames = config.groups[group].fields;
+    const values = fieldNames.map(name => {
+        const field = config.fields.find(f => f.name === `${group}_${name}`);
+        let value = document.getElementById(`${group}_${name}`).value;
+        if (field.type.startsWith('uint')) {
+            value = ethers.BigNumber.from(value);
+        }
+        return value;
+    });
+    try {
+        const tx = await dcaContract[config.groups[group].setter](...values);
+        await tx.wait();
+        // Optionally, update the displayed values
+        loadFieldValues(config, dcaContract);
+        alert(`${formatLabel(group)} updated successfully.`);
+    } catch (error) {
+        console.error(`Failed to set fields for ${group}`, error);
+        alert(`Failed to set ${formatLabel(group)}.`);
+    }
 }
+
