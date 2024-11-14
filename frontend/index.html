@@ -29,7 +29,22 @@
             font-size: 1.1rem;
             font-weight: 500;
         }
-    </style>
+        input, span.form-control {
+            font-family: monospace;
+        }
+        /* Additional CSS for address styling */
+        .address-link {
+            font-weight: bold;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .address-link:hover {
+            text-decoration: underline;
+        }
+        .status-text {
+            white-space: pre-wrap; /* Retain formatting for text separation */
+        }
+    </style>    
 </head>
 <body>
     <div class="text-center mb-3">
@@ -84,8 +99,8 @@
                     <input type="number" class="form-control" id="pool-fee-input" placeholder="Enter pool fee (e.g., 3000)">
                 </div>
                 <div class="mb-3">
-                    <label for="swap-amount-input" class="form-label">Swap Amount</label>
-                    <input type="number" class="form-control" id="swap-amount-input" placeholder="Enter swap amount">
+                    <label for="swap-amount-input" class="form-label" id="swap-amount-input-label">Swap Amount</label>
+                    <input type="number" step="any" class="form-control" id="swap-amount-input" placeholder="Enter swap amount">
                 </div>
                 <div class="mb-3">
                     <label for="swap-interval-input" class="form-label">Swap Interval (in seconds)</label>
@@ -107,11 +122,11 @@
                 <span id="executor" class="form-control">Loading...</span>
             </div>
             <div class="mb-3">
-                <label>Sell Token</label>
+                <label id="sellTokenLabel">Sell Token</label>
                 <span id="sellToken" class="form-control">Loading...</span>
             </div>
             <div class="mb-3">
-                <label>Buy Token</label>
+                <label id="buyTokenLabel">Buy Token</label>
                 <span id="buyToken" class="form-control">Loading...</span>
             </div>
             <div class="mb-3">
@@ -168,8 +183,8 @@
         <div class="card p-4 setter-card" style="display: none;">
             <h5>Set Swap Parameters</h5>
             <div class="mb-3">
-                <label for="swapAmountSetter" class="form-label">Swap Amount</label>
-                <input type="number" id="swapAmountSetter" class="form-control">
+                <label for="swapAmountSetter" class="form-label" id="swap-amount-setter-label">Swap Amount</label>
+                <input type="number" step="any" id="swapAmountSetter" class="form-control">
             </div>
             <div class="mb-3">
                 <label for="swapIntervalSetter" class="form-label">Swap Interval</label>
