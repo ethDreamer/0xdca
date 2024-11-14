@@ -8,23 +8,97 @@ let currentState = AppState.DISCONNECTED;
 let provider, signer, userAddress, proxyAddress, dcaContract;
 let proxyFactoryAddress, proxyFactoryABI, dcaABI;
 let networkData = {};
-
-document.getElementById("provider-select").addEventListener("change", setupProvider);
-document.getElementById("connect-wallet").addEventListener("click", handleWalletConnection);
-document.getElementById("create-proxy-button").addEventListener("click", createProxy);
-document.addEventListener("DOMContentLoaded", setupProvider);
-document.getElementById("network-select").addEventListener("change", async () => {
-    await setupProvider();
-    await loadNetworkData(document.getElementById("network-select").value);
-    updateUI();
-});
-
 const ERC20_ABI = [
     "function symbol() view returns (string)",
     "function decimals() view returns (uint8)"
 ];
 
-function updateUI() {
+// Event listeners
+document.addEventListener("DOMContentLoaded", initializeApp);
+document.getElementById("provider-select").addEventListener("change", setupProvider);
+document.getElementById("network-select").addEventListener("change", handleNetworkChange);
+document.getElementById("connect-wallet").addEventListener("click", handleWalletConnection);
+document.getElementById("create-proxy-button").addEventListener("click", createProxy);
+
+// Initialization Functions
+async function initializeApp() {
+    await populateNetworkSelect();
+    updateUI();
+}
+
+async function populateNetworkSelect() {
+    const networkSelect = document.getElementById('network-select');
+    try {
+        const networksResponse = await fetch('networks.json');
+        const networksData = await networksResponse.json();
+        const networks = networksData.networks;
+
+        networkSelect.innerHTML = ''; // Clear any existing options
+
+        for (const [chainId, networkInfo] of Object.entries(networks)) {
+            const option = document.createElement('option');
+            option.value = chainId;
+            option.text = networkInfo.name;
+            networkSelect.appendChild(option);
+        }
+
+        // Load network data for the first network
+        await loadNetworkData(networkSelect.value);
+        await setupProvider();
+    } catch (error) {
+        console.error('Error fetching networks.json', error);
+    }
+}
+
+async function loadNetworkData(chainId) {
+    const networksResponse = await fetch('networks.json');
+    const networksData = await networksResponse.json();
+    networkData = networksData.networks[chainId];
+    if (!networkData) {
+        console.error("Unsupported network");
+        return;
+    }
+    proxyFactoryAddress = networkData.proxyFactoryAddress;
+
+    // If connected, check the proxy status
+    if (userAddress) {
+        await checkProxyStatus();
+    }
+}
+
+async function setupProvider() {
+    const selectedProvider = document.getElementById("provider-select").value;
+    provider = null;
+
+    if (selectedProvider === "metamask" && window.ethereum?.isMetaMask) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+    } else if (selectedProvider === "rabby" && window.ethereum && !window.ethereum.isMetaMask) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+    }
+
+    if (!provider) {
+        alert("Selected provider not available or unable to differentiate.");
+        return;
+    }
+    signer = provider.getSigner();
+}
+
+// Event Handlers
+async function handleNetworkChange() {
+    await loadNetworkData(document.getElementById("network-select").value);
+    updateUI();
+}
+
+async function handleWalletConnection() {
+    if (currentState === AppState.DISCONNECTED) {
+        await connectWallet();
+    } else {
+        disconnectWallet();
+    }
+}
+
+// State Management Functions
+async function updateUI() {
     const connectButton = document.getElementById("connect-wallet");
     const statusText = document.getElementById("status-text");
     const createProxyForm = document.getElementById("create-proxy-form");
@@ -53,6 +127,7 @@ function updateUI() {
             createProxyForm.style.display = "block";
             proxyDetails.style.display = "none";
             setterCards.forEach(card => card.style.display = "none");
+            await loadTestConfig();
             break;
 
         case AppState.CONNECTED_WITH_PROXY:
@@ -67,31 +142,7 @@ function updateUI() {
     }
 }
 
-async function setupProvider() {
-    const selectedProvider = document.getElementById("provider-select").value;
-    provider = null;
-
-    if (selectedProvider === "metamask" && window.ethereum?.isMetaMask) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-    } else if (selectedProvider === "rabby" && window.ethereum && !window.ethereum.isMetaMask) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-    }
-
-    if (!provider) {
-        alert("Selected provider not available or unable to differentiate.");
-        return;
-    }
-    signer = provider.getSigner();
-}
-
-async function handleWalletConnection() {
-    if (currentState === AppState.DISCONNECTED) {
-        await connectWallet();
-    } else {
-        disconnectWallet();
-    }
-}
-
+// Contract Interaction Functions
 async function connectWallet() {
     const chainId = document.getElementById("network-select").value;
     await loadNetworkData(chainId);
@@ -128,16 +179,6 @@ function disconnectWallet() {
     updateUI();
 }
 
-async function loadNetworkData(chainId) {
-    const networks = await fetch("networks.json").then(res => res.json());
-    networkData = networks.networks[chainId];
-    if (!networkData) {
-        console.error("Unsupported network");
-        return;
-    }
-    proxyFactoryAddress = networkData.proxyFactoryAddress;
-}
-
 async function loadABI(file) {
     return fetch(file).then(res => res.json());
 }
@@ -154,7 +195,7 @@ async function checkProxyStatus() {
             await loadFieldValues(dcaContract);
         } else {
             currentState = AppState.CONNECTED_NO_PROXY;
-            loadTestConfig();
+            await loadInitialConfig();
         }
         updateUI();
     } catch (error) {
@@ -215,7 +256,15 @@ async function loadFieldValues(contract) {
 
             // Update input elements
             const inputElement = document.getElementById(elementId);
-            if (inputElement) inputElement.value = value;
+            if (inputElement) {
+                // Format swapAmount based on token decimals
+                if (contractField === 'swapAmount') {
+                    const formattedSwapAmount = ethers.utils.formatUnits(value, sellTokenDecimals);
+                    inputElement.value = formattedSwapAmount;
+                } else {
+                    inputElement.value = value;
+                }
+            }
         }
 
         // Update the labels with the token symbols
@@ -291,30 +340,43 @@ async function createProxy() {
     }
 }
 
-async function loadTestConfig() {
-    const config = await fetch("data/testConfig.json").then(res => res.json());
+async function loadInitialConfig() {
+    const config = networkData.initialConfig;
+    if (!config) {
+        console.error("No initial config available for this network.");
+        return;
+    }
 
     document.getElementById("executor-input").value = config.executorAddress;
     document.getElementById("sell-token-input").value = config.sellTokenAddress;
     document.getElementById("buy-token-input").value = config.buyTokenAddress;
-    document.getElementById("quoter-input").value = config.uniswapQuoterAddress;
+    document.getElementById("quoter-input").value = config.uniswapQuoterAddress || networkData.uniswapQuoter;
     document.getElementById("pool-fee-input").value = config.poolFee;
 
-    // Fetch sell token decimals to format the swap amount
+    // Fetch sell token decimals and symbol to format the swap amount and update label
     let sellTokenDecimals = 18; // Default to 18 decimals
+    let sellTokenSymbol = '';
     try {
         const sellTokenContract = new ethers.Contract(config.sellTokenAddress, ERC20_ABI, provider);
         sellTokenDecimals = await sellTokenContract.decimals();
+        sellTokenSymbol = await sellTokenContract.symbol();
     } catch (error) {
-        console.error("Error fetching sell token decimals", error);
+        console.error("Error fetching sell token decimals or symbol", error);
+        sellTokenSymbol = 'UNKNOWN';
     }
 
     const formattedSwapAmount = ethers.utils.formatUnits(config.swapAmount.toString(), sellTokenDecimals);
     document.getElementById("swap-amount-input").value = formattedSwapAmount;
     document.getElementById("swap-interval-input").value = config.swapInterval;
+
+    // Update the swap amount label to include the sell token symbol
+    const swapAmountInputLabel = document.getElementById("swap-amount-input-label");
+    if (swapAmountInputLabel) {
+        swapAmountInputLabel.innerText = `Swap Amount (${sellTokenSymbol})`;
+    }
 }
 
-// Setter function handlers remain the same
+// Setter function handlers
 async function setExecutor() {
     const executor = document.getElementById("executorSetter").value;
     try {
