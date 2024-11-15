@@ -10,7 +10,10 @@ let proxyFactoryAddress, proxyFactoryABI, dcaABI;
 let networkData = {};
 const ERC20_ABI = [
     "function symbol() view returns (string)",
-    "function decimals() view returns (uint8)"
+    "function decimals() view returns (uint8)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function balanceOf(address account) view returns (uint256)"
 ];
 
 // Event listeners
@@ -127,7 +130,7 @@ async function updateUI() {
             createProxyForm.style.display = "block";
             proxyDetails.style.display = "none";
             setterCards.forEach(card => card.style.display = "none");
-            await loadTestConfig();
+            await loadInitialConfig();
             break;
 
         case AppState.CONNECTED_WITH_PROXY:
@@ -291,6 +294,32 @@ async function loadFieldValues(contract) {
         if (sellTokenElement) {
             const sellTokenAddress = await contract.sellToken();
             sellTokenElement.innerHTML = `<strong>${sellTokenSymbol}</strong> (${sellTokenAddress})`;
+
+            // After fetching sellTokenSymbol and sellTokenDecimals
+            // Fetch the allowance
+            const sellTokenContract = new ethers.Contract(sellTokenAddress, ERC20_ABI, signer);
+            const allowance = await sellTokenContract.allowance(userAddress, proxyAddress);
+
+            // Check if allowance is MaxUint256 (infinite)
+            let formattedAllowance;
+            if (allowance.eq(ethers.constants.MaxUint256)) {
+                formattedAllowance = "Unlimited";
+            } else {
+                formattedAllowance = ethers.utils.formatUnits(allowance, sellTokenDecimals);
+            }
+
+            // Update the currentAllowance input field
+            const currentAllowanceInput = document.getElementById("currentAllowance");
+            if (currentAllowanceInput) {
+                currentAllowanceInput.value = formattedAllowance;
+            }
+
+            // Update the labels with the token symbol
+            const currentAllowanceLabel = document.getElementById('currentAllowanceLabel');
+            if (currentAllowanceLabel) currentAllowanceLabel.innerText = `Current Allowance (${sellTokenSymbol})`;
+
+            const approveAmountLabel = document.getElementById('approveAmountLabel');
+            if (approveAmountLabel) approveAmountLabel.innerText = `Approve Amount (${sellTokenSymbol})`;
         }
 
         const buyTokenElement = document.getElementById('buyToken');
@@ -298,9 +327,62 @@ async function loadFieldValues(contract) {
             const buyTokenAddress = await contract.buyToken();
             buyTokenElement.innerHTML = `<strong>${buyTokenSymbol}</strong> (${buyTokenAddress})`;
         }
-
     } catch (error) {
         console.error("Failed to load contract field values", error);
+    }
+}
+
+async function approveToken() {
+    try {
+        const infiniteAllowance = document.getElementById("infiniteAllowanceCheckbox").checked;
+        let formattedApproveAmount;
+        let sellTokenDecimals = 18; // Default to 18 decimals
+        let sellTokenContract;
+
+        // Get sellTokenAddress and sellTokenContract
+        const sellTokenAddress = await dcaContract.sellToken();
+        sellTokenContract = new ethers.Contract(sellTokenAddress, ERC20_ABI, signer);
+
+        try {
+            sellTokenDecimals = await sellTokenContract.decimals();
+        } catch (error) {
+            console.error("Error fetching sell token decimals", error);
+        }
+
+        if (infiniteAllowance) {
+            formattedApproveAmount = ethers.constants.MaxUint256;
+        } else {
+            const approveAmountInput = document.getElementById("approveAmount").value;
+            formattedApproveAmount = ethers.utils.parseUnits(approveAmountInput, sellTokenDecimals);
+        }
+
+        // Approve the token
+        const tx = await sellTokenContract.approve(proxyAddress, formattedApproveAmount);
+        await tx.wait();
+        alert("Token approved successfully.");
+
+        // Reload the allowance
+        const allowance = await sellTokenContract.allowance(userAddress, proxyAddress);
+
+        let formattedAllowance;
+        if (allowance.eq(ethers.constants.MaxUint256)) {
+            formattedAllowance = "Unlimited";
+        } else {
+            formattedAllowance = ethers.utils.formatUnits(allowance, sellTokenDecimals);
+        }
+
+        const currentAllowanceInput = document.getElementById("currentAllowance");
+        if (currentAllowanceInput) {
+            currentAllowanceInput.value = formattedAllowance;
+        }
+
+        // Reset the approveAmount input field and uncheck the infiniteAllowanceCheckbox
+        document.getElementById("approveAmount").value = "";
+        document.getElementById("infiniteAllowanceCheckbox").checked = false;
+
+    } catch (error) {
+        console.error("Failed to approve token", error);
+        alert("Failed to approve token.");
     }
 }
 

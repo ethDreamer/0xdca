@@ -4,7 +4,7 @@ const fs = require("fs");
 require("dotenv").config();
 
 async function main() {
-  const quote = JSON.parse(fs.readFileSync("./scripts/data/0xquote.json", "utf8"));
+  const quote = JSON.parse(fs.readFileSync("./scripts/data/old_contract_quote.json", "utf8"));
   const contractAddress = fs.readFileSync("./scripts/data/contractAddress.txt", "utf8").trim();
   const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY } = process.env;
 

@@ -64,15 +64,19 @@ async function main() {
   const buyTokenAddress = BUY_TOKEN_ADDRESS;
   const chainId = parseInt(CHAIN_ID);
 
+  // Create Token instances for Uniswap SDK
   const sellToken = new Token(chainId, sellTokenAddress, 6, "USDC", "USD Coin");
   const buyToken = new Token(chainId, buyTokenAddress, 18, "WETH", "Wrapped ETH");
 
+  // find the most liquid pool
   const poolFee = await allpools(chainId, sellToken, buyToken);
   console.log(`Most liquid pool fee: ${poolFee}`);
 
+  // Impersonate the USDC holder account
   await ethers.provider.send("hardhat_impersonateAccount", [USDC_HOLDER_ADDRESS]);
   const usdcHolder = await ethers.getSigner(USDC_HOLDER_ADDRESS);
 
+  // Transfer USDC to the owner
   const usdc = await ethers.getContractAt("IERC20", sellToken.address, usdcHolder);
   await usdc.connect(usdcHolder).transfer(owner.address, ethers.parseUnits(initialUSDCBalance, sellToken.decimals), {
     maxFeePerGas: feeData.maxFeePerGas,
@@ -86,11 +90,28 @@ async function main() {
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   });
   await dca.waitForDeployment();
-  console.log(`DCAContract deployed at: ${dca.target}`);
+  // Initialize the DCA contract
+  dcaContract = dca.target;
+  dcaInstance = await ethers.getContractAt("DCAContract", dcaContract, owner);
+  await dcaInstance.connect(owner).initialize(
+    owner.address,
+    executor.address,
+    sellToken.address,
+    buyToken.address,
+    UNISWAP_QUOTER,
+    poolFee,
+    ethers.parseUnits("1000", sellToken.decimals),
+    0,
+    {
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    }
+  );
+  console.log(`DCAContract deployed at: ${dcaContract}`);
 
   // Deploy the Proxy Factory with the DCA contract's address
   const DCAProxyFactory = await ethers.getContractFactory("DCAProxyFactory");
-  const proxyFactory = await DCAProxyFactory.connect(owner).deploy(dca.target, {
+  const proxyFactory = await DCAProxyFactory.connect(owner).deploy(dcaContract, {
     maxFeePerGas: feeData.maxFeePerGas,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   });
@@ -98,7 +119,7 @@ async function main() {
   console.log(`DCAProxyFactory deployed at: ${proxyFactory.target}`);
 
   // Save the contract addresses for later use
-  fs.writeFileSync("./scripts/data/contractAddress.txt", dca.target);
+  fs.writeFileSync("./scripts/data/contractAddress.txt", dcaContract);
   fs.writeFileSync("./scripts/data/proxyFactoryAddress.txt", proxyFactory.target);
 
   const testing_address = "0x670CCA46347c59B9BDcD7B0E0239B7B58eFA0214";
