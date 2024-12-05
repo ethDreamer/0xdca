@@ -35,8 +35,9 @@ contract DCAProxyFactory {
             _buyToken,         // _buyToken
             _uniswapQuoter,    // _uniswapQuoter
             _uniswapPoolFee,   // _uniswapPoolFee
-            _swapAmount,    // _swapAmount
-            _swapInterval   // _swapInterval
+            _swapAmount,       // _swapAmount
+            _swapInterval,     // _swapInterval
+            true
         );
 
         userProxies[msg.sender] = proxy;

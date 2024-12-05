@@ -18,16 +18,24 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "doubleCheck",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
         "name": "allowanceTarget",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "sellAmount",
-        "type": "uint256"
       },
       {
         "internalType": "bytes",
@@ -94,6 +102,11 @@
         "internalType": "uint256",
         "name": "_swapInterval",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "_doubleCheck",
+        "type": "bool"
       }
     ],
     "name": "initialize",
@@ -138,6 +151,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "_doubleCheck",
+        "type": "bool"
+      }
+    ],
+    "name": "setDoubleCheck",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

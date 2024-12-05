@@ -1,0 +1,12 @@
+{
+    "endpoints": {
+      "8453": "https://base-mainnet.rpc.org",
+      "31337": "http://127.0.0.1:8545"
+    },
+    "executors": {
+      "0x70e73426f7bee25e854415974399f0e9f5dcc404": {
+        "31337": ["0x670CCA46347c59B9BDcD7B0E0239B7B58eFA0214"]
+      }
+    }
+  }
+  

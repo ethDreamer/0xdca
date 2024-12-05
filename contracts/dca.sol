@@ -1,6 +1,7 @@
 // DCAContract.sol
 pragma solidity ^0.8.4;
 pragma abicoder v2; // Enable ABI coder v2
+// import "hardhat/console.sol";
 
 interface IERC20 {
     function transferFrom(
@@ -50,6 +51,8 @@ contract DCAContract {
     uint256 public swapInterval;
     uint256 public lastSwapTime;
 
+    bool public doubleCheck;
+
     bool private initialized;
 
     modifier onlyOwner() {
@@ -70,7 +73,8 @@ contract DCAContract {
         address _uniswapQuoter,
         uint24 _uniswapPoolFee,
         uint256 _swapAmount,
-        uint256 _swapInterval
+        uint256 _swapInterval,
+        bool _doubleCheck
     ) external {
         require(!initialized, "Already initialized");
         owner = _owner;
@@ -81,6 +85,7 @@ contract DCAContract {
         uniswapPoolFee = _uniswapPoolFee;
         swapAmount = _swapAmount;
         swapInterval = _swapInterval;
+        doubleCheck = _doubleCheck;
         initialized = true;
     }
 
@@ -122,6 +127,11 @@ contract DCAContract {
         }
     }
 
+    // Set doubleCheck
+    function setDoubleCheck(bool _doubleCheck) external onlyOwner {
+        doubleCheck = _doubleCheck;
+    }
+
     function calculateMinBuyAmount(uint256 sellAmount) internal returns (uint256) {
         IQuoterV2 quoter = IQuoterV2(uniswapQuoter);
 
@@ -144,23 +154,20 @@ contract DCAContract {
     // Main function to execute the swap
     function executeSwap(
         address allowanceTarget,
-        uint256 sellAmount,
         bytes calldata swapData // Contains the call data to pass to the 0x Exchange
     ) external onlyExecutor {
         require(block.timestamp >= lastSwapTime + swapInterval, "Swap interval not reached");
-        require(sellAmount <= swapAmount, "Sell amount exceeds max limit");
 
         lastSwapTime = block.timestamp;
-
         // Transfer tokens from the cold wallet to this contract
         require(
-            IERC20(sellToken).transferFrom(owner, address(this), sellAmount),
+            IERC20(sellToken).transferFrom(owner, address(this), swapAmount),
             "TransferFrom failed"
         );
 
         // Approve the Allowance Target to spend tokens
         require(
-            IERC20(sellToken).approve(allowanceTarget, sellAmount),
+            IERC20(sellToken).approve(allowanceTarget, swapAmount),
             "Approval to Allowance Target failed"
         );
 
@@ -169,22 +176,17 @@ contract DCAContract {
         require(success, "Swap failed");
 
         // Verify the amount bought
-        uint256 buyAmount = IERC20(buyToken).balanceOf(address(this));
-        uint256 minBuyAmount = calculateMinBuyAmount(sellAmount);
-        // Emit the buyAmount and minBuyAmount for debugging
-        // emit SwapComparison(buyAmount, minBuyAmount);
-        require(buyAmount >= minBuyAmount, "Buy amount less than minimum");
+        uint256 amountBought = IERC20(buyToken).balanceOf(address(this));
+
+        if (doubleCheck) {
+            uint256 minBuyAmount = calculateMinBuyAmount(swapAmount);
+            require(amountBought >= minBuyAmount, "Buy amount less than minimum");
+        }
 
         // Transfer the bought tokens back to the cold wallet
         require(
-            IERC20(buyToken).transfer(owner, buyAmount),
+            IERC20(buyToken).transfer(owner, amountBought),
             "Transfer to owner failed"
-        );
-
-        // Reset allowance to prevent reentrancy attacks
-        require(
-            IERC20(sellToken).approve(allowanceTarget, 0),
-            "Reset approval failed"
         );
     }
 }

@@ -20,7 +20,7 @@ module.exports = {
     hardhat: {
       forking: {
         url: `https://base-mainnet.infura.io/v3/${INFURA_API_KEY}`,
-        blockNumber: 21062365,
+        blockNumber: 23323045,
       },
       chains: {
         8453: {

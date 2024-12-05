@@ -122,9 +122,53 @@ async function main() {
   fs.writeFileSync("./scripts/data/contractAddress.txt", dcaContract);
   fs.writeFileSync("./scripts/data/proxyFactoryAddress.txt", proxyFactory.target);
 
-  const testing_address = "0x670CCA46347c59B9BDcD7B0E0239B7B58eFA0214";
-  console.log("Balances before transfer to testing address:");
-  await logBalances(testing_address, usdc);
+    // Deploy the proxy via the factory
+    const sellAmount = ethers.parseUnits(process.env.SELL_UNITS_WHOLE || "1000", 6); // 1000 USDC with 6 decimals
+    const uniswapQuoter = UNISWAP_QUOTER;
+    const uniswapPoolFee = 3000; // Replace with actual value if necessary
+    const swapInterval = 0; // For testing purposes
+
+    const createProxyTx = await proxyFactory.createProxy(
+        executor.address,
+        sellTokenAddress,
+        buyTokenAddress,
+        uniswapQuoter,
+        uniswapPoolFee,
+        sellAmount,
+        swapInterval,
+        {
+            maxFeePerGas: feeData.maxFeePerGas,
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+        }
+    );
+    const createProxyReceipt = await createProxyTx.wait();
+    console.log(`Proxy deployed via factory, tx hash: ${createProxyReceipt.transactionHash}`);
+
+    const proxyAddress = await proxyFactory.getProxy(owner.address);
+    console.log(`Proxy address: ${proxyAddress}`);
+
+    // save proxy address
+    fs.writeFileSync("./scripts/data/proxyAddress.txt", proxyAddress);
+
+    const usdcContract = await ethers.getContractAt("IERC20", sellToken.address, owner);
+
+    // Approve the proxy to spend USDC from owner
+    const approveTx = await usdcContract.approve(proxyAddress, ethers.MaxUint256, {
+        maxFeePerGas: feeData.maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    });
+    await approveTx.wait();
+    console.log(`Approved USDC for proxy: ${proxyAddress}`);
+
+    // Check allowance
+    const usdcAllowance = await usdcContract.allowance(owner.address, proxyAddress);
+    console.log(`Owner's USDC allowance to proxy: ${usdcAllowance.toString()}`);
+
+
+  // Log balances before and after transfer
+    const testing_address = "0x670CCA46347c59B9BDcD7B0E0239B7B58eFA0214";
+    console.log("Balances before transfer to testing address:");
+    await logBalances(testing_address, usdc);
 
   // Send 5 ETH and 10,000 USDC to testing address
   await owner.sendTransaction({
@@ -139,6 +183,14 @@ async function main() {
   await network.provider.send("evm_setIntervalMining", [5000]);
 
   await ethers.provider.send("hardhat_stopImpersonatingAccount", [USDC_HOLDER_ADDRESS]);
+
+  second_executor = "0x70e73426f7bee25e854415974399f0e9f5dcc404";
+  // send 1 ETH to second executor
+  await owner.sendTransaction({
+    to: second_executor,
+    value: ethers.parseEther("1"),
+  }).then(tx => tx.wait());
+
 }
 
 main()
