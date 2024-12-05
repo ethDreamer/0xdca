@@ -218,6 +218,7 @@ async function loadFieldValues(contract) {
             swapAmount: 'swapAmountSetter',
             swapInterval: 'swapIntervalSetter',
             lastSwapTime: 'lastSwapTime',
+            doubleCheck: 'doubleCheckSetter',
         };
 
         let sellTokenSymbol = '';
@@ -251,6 +252,11 @@ async function loadFieldValues(contract) {
                     console.error("Error fetching buy token symbol", error);
                     buyTokenSymbol = 'UNKNOWN';
                 }
+            }
+
+            // Handle boolean values
+            if (typeof value === 'boolean') {
+                value = value ? 'True' : 'False';
             }
 
             // Update display elements
@@ -320,6 +326,12 @@ async function loadFieldValues(contract) {
 
             const approveAmountLabel = document.getElementById('approveAmountLabel');
             if (approveAmountLabel) approveAmountLabel.innerText = `Approve Amount (${sellTokenSymbol})`;
+        }
+
+        const doubleCheckElement = document.getElementById('doubleCheck');
+        if (doubleCheckElement) {
+            const doubleCheckValue = await contract.doubleCheck();
+            doubleCheckElement.innerText = doubleCheckValue ? 'True' : 'False';
         }
 
         const buyTokenElement = document.getElementById('buyToken');
@@ -522,5 +534,20 @@ async function setQuoter() {
     } catch (error) {
         console.error("Failed to set quoter", error);
         alert("Failed to set quoter.");
+    }
+}
+
+async function setDoubleCheck() {
+    const doubleCheckValue = document.getElementById("doubleCheckSetter").value;
+    const booleanValue = (doubleCheckValue === 'true');
+
+    try {
+        const tx = await dcaContract.setDoubleCheck(booleanValue);
+        await tx.wait();
+        alert("Double Check updated successfully.");
+        await loadFieldValues(dcaContract);
+    } catch (error) {
+        console.error("Failed to set doubleCheck", error);
+        alert("Failed to set Double Check.");
     }
 }

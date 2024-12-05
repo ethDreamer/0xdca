@@ -148,6 +148,10 @@
                 <label>Last Swap Time</label>
                 <span id="lastSwapTime" class="form-control">Loading...</span>
             </div>
+            <div class="mb-3">
+                <label>Double Check</label>
+                <span id="doubleCheck" class="form-control">Loading...</span>
+            </div>
         </div>
 
         <!-- Allowance Card -->
@@ -220,6 +224,19 @@
                 <input type="text" id="uniswapQuoterSetter" class="form-control">
             </div>
             <button class="btn btn-primary mb-3" onclick="setQuoter()">Set Quoter</button>
+        </div>
+
+        <!-- Set DoubleCheck Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Double Check</h5>
+            <div class="mb-3">
+                <label for="doubleCheckSetter" class="form-label">Double Check</label>
+                <select id="doubleCheckSetter" class="form-select">
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setDoubleCheck()">Set Double Check</button>
         </div>
     </div>
 
