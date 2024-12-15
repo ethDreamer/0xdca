@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 require("hardhat-tracer");
+
 const { OWNER_PRIVATE_KEY, EXECUTOR_PRIVATE_KEY, INFURA_API_KEY } = process.env;
 
 module.exports = {
@@ -20,7 +21,8 @@ module.exports = {
     hardhat: {
       forking: {
         url: `https://base-mainnet.infura.io/v3/${INFURA_API_KEY}`,
-        blockNumber: 23323045,
+        //url: 'http://localhost:1337',
+        blockNumber: 23756805,
       },
       chains: {
         8453: {
@@ -45,5 +47,17 @@ module.exports = {
     localhost: {
       url: "http://127.0.0.1:8545",
     },
+    base: {
+      url: `https://base-mainnet.infura.io/v3/${INFURA_API_KEY}`,
+      chainId: 8453,
+      accounts: [`0x${OWNER_PRIVATE_KEY}`, `0x${EXECUTOR_PRIVATE_KEY}`], // Use private keys
+      gasPrice: "auto", // Adjust gas price automatically
+    },
+    optimism: {
+      url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
+      chainId: 10,
+      accounts: [`0x${OWNER_PRIVATE_KEY}`, `0x${EXECUTOR_PRIVATE_KEY}`], // Use private keys
+      gasPrice: "auto",
+    }
   },
 };

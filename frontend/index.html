@@ -48,7 +48,7 @@
 </head>
 <body>
     <div class="text-center mb-3">
-        <select id="provider-select" class="form-select">
+        <select id="provider-select" class="form-select" style="display: none">
             <option value="metamask">MetaMask</option>
             <option value="rabby">Rabby</option>
         </select>
@@ -149,6 +149,10 @@
                 <span id="lastSwapTime" class="form-control">Loading...</span>
             </div>
             <div class="mb-3">
+                <label>Minimum Price</label>
+                <span id="minimumPrice" class="form-control">Loading...</span>
+            </div>
+            <div class="mb-3">
                 <label>Double Check</label>
                 <span id="doubleCheck" class="form-control">Loading...</span>
             </div>
@@ -224,6 +228,17 @@
                 <input type="text" id="uniswapQuoterSetter" class="form-control">
             </div>
             <button class="btn btn-primary mb-3" onclick="setQuoter()">Set Quoter</button>
+        </div>
+
+        <!-- Set Minimum Price Card -->
+        <div class="card p-4 setter-card" style="display: none;">
+            <h5>Set Minimum Price</h5>
+            <p class="text-muted">Enter the minimum price in terms of "Buy Token per Sell Token" (e.g. 500 means 1 SELL = 500 BUY). Entering 0.0 disables the check.</p>
+            <div class="mb-3">
+                <label for="minimumPriceSetter" class="form-label">Minimum Price</label>
+                <input type="number" step="any" id="minimumPriceSetter" class="form-control" placeholder="e.g. 500">
+            </div>
+            <button class="btn btn-primary mb-3" onclick="setMinimumPrice()">Set Minimum Price</button>
         </div>
 
         <!-- Set DoubleCheck Card -->

@@ -1,7 +1,8 @@
 {
     "endpoints": {
       "8453": "https://base-mainnet.rpc.org",
-      "31337": "http://127.0.0.1:8545"
+      "31337": "http://127.0.0.1:8545",
+      "10": "https://mainnet.optimism.io"
     },
     "executors": {
       "0x70e73426f7bee25e854415974399f0e9f5dcc404": {

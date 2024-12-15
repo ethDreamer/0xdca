@@ -218,12 +218,14 @@ async function loadFieldValues(contract) {
             swapAmount: 'swapAmountSetter',
             swapInterval: 'swapIntervalSetter',
             lastSwapTime: 'lastSwapTime',
+            minimumPrice: 'minimumPriceSetter',
             doubleCheck: 'doubleCheckSetter',
         };
 
         let sellTokenSymbol = '';
         let sellTokenDecimals = 18; // Default to 18 decimals
         let buyTokenSymbol = '';
+        let buyTokenDecimals = 18;
 
         for (const [contractField, elementId] of Object.entries(fields)) {
             let value = await contract[contractField]();
@@ -248,6 +250,7 @@ async function loadFieldValues(contract) {
                 try {
                     const buyTokenContract = new ethers.Contract(value, ERC20_ABI, provider);
                     buyTokenSymbol = await buyTokenContract.symbol();
+                    buyTokenDecimals = await buyTokenContract.decimals();
                 } catch (error) {
                     console.error("Error fetching buy token symbol", error);
                     buyTokenSymbol = 'UNKNOWN';
@@ -257,6 +260,20 @@ async function loadFieldValues(contract) {
             // Handle boolean values
             if (typeof value === 'boolean') {
                 value = value ? 'True' : 'False';
+            }
+
+            if (contractField === 'minimumPrice') {
+                let decimalDifference = 0;
+                if (buyTokenSymbol != 'UNKNOWN' && sellTokenSymbol != 'UNKNOWN') {
+                    decimalDifference = buyTokenDecimals - sellTokenDecimals;
+                }
+
+                // value is a string from BigNumber
+                // Convert from string to BigNumber first
+                const bnValue = ethers.BigNumber.from(value);
+                // Divide by 1e18 to get a floating point string
+                const displayValue = ethers.utils.formatUnits(bnValue, 18 + decimalDifference); 
+                value = displayValue; // now value is a user-readable decimal string
             }
 
             // Update display elements
@@ -551,3 +568,45 @@ async function setDoubleCheck() {
         alert("Failed to set Double Check.");
     }
 }
+
+async function setMinimumPrice() {
+    // Get user input
+    const minimumPriceInput = document.getElementById("minimumPriceSetter").value;
+    if (!minimumPriceInput || isNaN(minimumPriceInput)) {
+        alert("Please enter a valid minimum price");
+        return;
+    }
+
+    // Fetch token decimals
+    const sellTokenAddress = await dcaContract.sellToken();
+    const buyTokenAddress = await dcaContract.buyToken();
+
+    let sellTokenDecimals = 18; // Default to 18 decimals
+    let buyTokenDecimals = 18; // Default to 18 decimals
+
+    try {
+        const sellTokenContract = new ethers.Contract(sellTokenAddress, ERC20_ABI, provider);
+        sellTokenDecimals = await sellTokenContract.decimals();
+        const buyTokenContract = new ethers.Contract(buyTokenAddress, ERC20_ABI, provider);
+        buyTokenDecimals = await buyTokenContract.decimals();
+    } catch (error) {
+        console.error("Error fetching token decimals", error);
+        alert("Failed to fetch token decimals");
+        return;
+    }
+
+    // Adjust the user-provided minimum price based on decimals
+    const decimalDifference = buyTokenDecimals - sellTokenDecimals;
+    const scaledPrice = ethers.utils.parseUnits(minimumPriceInput, 18 + decimalDifference);
+
+    try {
+        const tx = await dcaContract.setMinimumPrice(scaledPrice);
+        await tx.wait();
+        alert("Minimum Price updated successfully.");
+        await loadFieldValues(dcaContract);
+    } catch (error) {
+        console.error("Failed to set minimum price", error);
+        alert("Failed to set minimum price.");
+    }
+}
+

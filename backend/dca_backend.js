@@ -120,6 +120,37 @@ async function verifyAllowance(ethersProvider, sellTokenAddress, ownerAddress, s
   }
 }
 
+async function verifyScaledMinimumPrice(proxyContract, swapQuote, swapAmount) {
+    try {
+      // Fetch the minimum price from the contract
+      const minimumPrice = await proxyContract.minimumPrice();
+      if (minimumPrice === 0) {
+        logger.info("No minimum price set; skipping price check.");
+        return true; // No restriction
+      }
+
+      // Extract the buyAmount from the swap quote
+      const buyAmount = BigInt(swapQuote.buyAmount);
+
+      // Calculate the scaled minimum buy amount
+      const scaledMinimumBuyAmount = (BigInt(swapAmount) * BigInt(minimumPrice)) / BigInt(1e18);
+
+      logger.info(`Scaled Minimum Buy Amount: ${scaledMinimumBuyAmount.toString()}`);
+      logger.info(`Buy Amount from Quote: ${buyAmount.toString()}`);
+
+      // Check if the buy amount satisfies the scaled minimum price
+      if (buyAmount >= scaledMinimumBuyAmount) {
+        return true; // Swap is valid
+      } else {
+        logger.warn("Buy amount does not meet the scaled minimum price.");
+        return false; // Swap is invalid
+      }
+    } catch (error) {
+      logger.error(`Error verifying scaled minimum price: ${error.message}`);
+      return false;
+    }
+}
+
 // Get swap quote from 0x API
 async function get0xQuote(
   buyToken,
@@ -130,6 +161,7 @@ async function get0xQuote(
   txOriginAddress,
   slippageBps = 50
 ) {
+  /*
   // For testing, you can read from a local file
   try {
     //const data = fs.readFileSync('../scripts/data/new_contract_quote.json', 'utf8');
@@ -138,6 +170,7 @@ async function get0xQuote(
   } catch (err) {
     logger.error('Failed to read quote from file:', err);
   }
+  */
 
   // Load the ZERO_EX_API_KEY from environment variables
   const ZERO_EX_API_KEY = process.env.ZERO_EX_API_KEY;
@@ -325,12 +358,12 @@ async function main() {
           continue;
         }
         const proxyFactory = getProxyFactoryContract(ethersProvider, proxyFactoryAddress);
-        for (const accountAddress of accounts) {
+        for (const ownerAddress of accounts) {
           try {
-            const proxyAddress = await proxyFactory.getProxy(accountAddress);
+            const proxyAddress = await proxyFactory.getProxy(ownerAddress);
             if (proxyAddress === ethers.ZeroAddress) {
               logger.info(
-                `No proxy deployed for account ${accountAddress} on network ${networkId}`
+                `No proxy deployed for account ${ownerAddress} on network ${networkId}`
               );
               continue;
             }
@@ -341,21 +374,21 @@ async function main() {
             const swapInterval = await proxy.swapInterval();
             const proxyExecutor = await proxy.executor();
             // log all these values
-            logger.info(`Proxy Address: ${proxyAddress}`);
-            logger.info(`Sell Token: ${sellToken}`);
-            logger.info(`Amount: ${amount}`);
-            logger.info(`Last Swap: ${lastSwap}`);
-            logger.info(`Swap Interval: ${swapInterval}`);
+            logger.info(`Proxy Address:  ${proxyAddress}`);
+            logger.info(`Sell Token:     ${sellToken}`);
+            logger.info(`Amount:         ${amount}`);
+            logger.info(`Last Swap:      ${lastSwap}`);
+            logger.info(`Swap Interval:  ${swapInterval}`);
             logger.info(`Proxy Executor: ${proxyExecutor}`);
             if (proxyExecutor.toLowerCase() !== executorAddress.toLowerCase()) {
               logger.error(
-                `Executor mismatch for account ${accountAddress} on network ${networkId}`
+                `Executor mismatch for account ${ownerAddress} on network ${networkId}`
               );
               continue;
             }
             if (!await verifyInterval(ethersProvider, lastSwap, swapInterval)) {
               logger.info(
-                `Swap interval not reached for account ${accountAddress} on network ${networkId}`
+                `Swap interval not reached for account ${ownerAddress} on network ${networkId}`
               );
               continue;
             }
@@ -363,12 +396,12 @@ async function main() {
               !(await verifyAllowance(
                 ethersProvider,
                 sellToken,
-                accountAddress,
+                ownerAddress,
                 proxyAddress,
                 amount
               ))
             ) {
-              logger.info(`Insufficient allowance for account ${accountAddress}`);
+              logger.info(`Insufficient allowance for account ${ownerAddress}`);
               continue;
             }
 
@@ -379,8 +412,8 @@ async function main() {
             const buyTokenContract = new ethers.Contract(buyTokenAddress, erc20Abi, ethersProvider);
 
             // Log balances before swap for owner
-            logger.info(`Balances for owner (${accountAddress}) before swap:`);
-            await logTokenBalances(accountAddress, sellTokenContract, buyTokenContract);
+            logger.info(`Balances for owner (${ownerAddress}) before swap:`);
+            await logTokenBalances(ownerAddress, sellTokenContract, buyTokenContract);
 
             const buyToken = buyTokenAddress;
             // Get the swap quote
@@ -389,13 +422,23 @@ async function main() {
               sellToken,
               amount,
               chainId,
-              proxyAddress,
+              ownerAddress,
               executorAccount.address,
               50 // 0.5% slippage
             );
             if (!swapQuote) {
               continue;
             }
+
+            // Verify the scaled minimum price
+            const isPriceValid = await verifyScaledMinimumPrice(proxy, swapQuote, amount);
+            if (!isPriceValid) {
+              logger.info(
+                `Skipping swap for account ${ownerAddress} on network ${networkId} due to price restrictions.`
+              );
+              continue;
+            }
+
             // Execute the swap
             const executorAccountWithProvider = executorAccount.connect(ethersProvider);
             const txHash = await executeSwap(
@@ -405,21 +448,21 @@ async function main() {
             );
             if (txHash) {
               logger.info(
-                `Swap executed for account ${accountAddress} on network ${networkId}. Tx hash: ${txHash}`
+                `Swap executed for account ${ownerAddress} on network ${networkId}. Tx hash: ${txHash}`
               );
 
               // Log balances after swap for owner
-              logger.info(`Balances for owner (${accountAddress}) after swap:`);
-              await logTokenBalances(accountAddress, sellTokenContract, buyTokenContract);
+              logger.info(`Balances for owner (${ownerAddress}) after swap:`);
+              await logTokenBalances(ownerAddress, sellTokenContract, buyTokenContract);
 
             } else {
               logger.error(
-                `Failed to execute swap for account ${accountAddress} on network ${networkId}`
+                `Failed to execute swap for account ${ownerAddress} on network ${networkId}`
               );
             }
           } catch (e) {
             logger.error(
-              `Error processing account ${accountAddress} on network ${networkId}: ${e}`
+              `Error processing account ${ownerAddress} on network ${networkId}: ${e}`
             );
           }
         }

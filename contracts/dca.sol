@@ -1,7 +1,7 @@
 // DCAContract.sol
 pragma solidity ^0.8.4;
 pragma abicoder v2; // Enable ABI coder v2
-// import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 interface IERC20 {
     function transferFrom(
@@ -51,6 +51,7 @@ contract DCAContract {
     uint256 public swapInterval;
     uint256 public lastSwapTime;
 
+    uint256 public minimumPrice;
     bool public doubleCheck;
 
     bool private initialized;
@@ -127,6 +128,11 @@ contract DCAContract {
         }
     }
 
+    // minimum price is scaled by 10^18 for precision
+    function setMinimumPrice(uint256 _minimumPrice) external onlyOwner {
+        minimumPrice = _minimumPrice;
+    }
+
     // Set doubleCheck
     function setDoubleCheck(bool _doubleCheck) external onlyOwner {
         doubleCheck = _doubleCheck;
@@ -171,22 +177,26 @@ contract DCAContract {
             "Approval to Allowance Target failed"
         );
 
+        // Get owner balance of Buy Token before swap
+        uint256 initialBalance = IERC20(buyToken).balanceOf(owner);
+
         // Execute the swap using the 0x Allowance Target
         (bool success, ) = allowanceTarget.call(swapData);
         require(success, "Swap failed");
 
-        // Verify the amount bought
-        uint256 amountBought = IERC20(buyToken).balanceOf(address(this));
+        // Get owner balance of Buy Token after swap
+        uint256 finalBalance = IERC20(buyToken).balanceOf(owner);
 
+        uint256 amountBought = finalBalance - initialBalance;
+
+        // Verify the amount bought
+        if (minimumPrice > 0) {
+            uint256 actualPrice = (amountBought * 1e18) / swapAmount;
+            require(actualPrice >= minimumPrice, "Price below minimum");
+        }
         if (doubleCheck) {
             uint256 minBuyAmount = calculateMinBuyAmount(swapAmount);
             require(amountBought >= minBuyAmount, "Buy amount less than minimum");
         }
-
-        // Transfer the bought tokens back to the cold wallet
-        require(
-            IERC20(buyToken).transfer(owner, amountBought),
-            "Transfer to owner failed"
-        );
     }
 }

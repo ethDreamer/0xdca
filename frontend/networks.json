@@ -1,0 +1,53 @@
+{
+    "networks": {
+        "8453": {
+            "name": "Base Mainnet",
+            "proxyFactoryAddress": "0xf43E6d5aa4ff2fCBf9Ce12B6b1FEF44eCDD6c18f",
+            "blockExplorer": "https://basescan.org/address/",
+            "uniswapQuoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+            "uniswapFactory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+            "initialConfig": {
+                "executorAddress": "0xYourExecutorAddress",
+                "sellTokenAddress": "0xYourSellTokenAddress",
+                "buyTokenAddress": "0xYourBuyTokenAddress",
+                "uniswapQuoterAddress": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+                "poolFee": 3000,
+                "swapAmount": "1000000000",
+                "swapInterval": 30
+            }
+        },
+        "10": {
+            "name": "Optimism Mainnet",
+            "proxyFactoryAddress": "0xf43E6d5aa4ff2fCBf9Ce12B6b1FEF44eCDD6c18f",
+            "blockExplorer": "https://optimistic.etherscan.io/address/",
+            "uniswapQuoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+            "uniswapFactory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+            "initialConfig": {
+                "executorAddress": "0xYourExecutorAddress",
+                "sellTokenAddress": "0xYourSellTokenAddress",
+                "buyTokenAddress": "0xYourBuyTokenAddress",
+                "uniswapQuoterAddress": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+                "poolFee": 3000,
+                "swapAmount": "1000000000",
+                "swapInterval": 30
+            }
+        },
+        "31337": {
+            "name": "Localhost",
+            "proxyFactoryAddress": "0xf43E6d5aa4ff2fCBf9Ce12B6b1FEF44eCDD6c18f",
+            "blockExplorer": "https://basescan.org/address/",
+            "uniswapQuoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+            "uniswapFactory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+            "initialConfig": {
+                "executorAddress": "0x70e73426f7bee25e854415974399f0e9f5dcc404",
+                "sellTokenAddress": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                "buyTokenAddress": "0x4200000000000000000000000000000000000006",
+                "uniswapQuoterAddress": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+                "poolFee": 3000,
+                "swapAmount": "1000000000",
+                "swapInterval": 30
+            }
+        }
+    }
+}
+

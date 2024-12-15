@@ -31,7 +31,7 @@ function deriveAccounts(seedPhraseFile, numAccounts = 20) {
 
 describe("Swap Debugging Test", function () {
   let proxyContract, sellToken, buyToken, executorSigner, erc20Abi;
-  const proxyAddress = "0xF4Ad35675e1cD85FE5A14f56573F5618f21d3919"; // Replace with deployed proxy address
+  const proxyAddress = "0x12B1c743Ab5de51f5Aa50dB01bDcAD005B72dc53";
   const executorAddress = "0x70e73426F7BEE25e854415974399f0e9F5dcc404"; // Replace with executor address
   const ownerAddress = "0x670cca46347c59b9bdcd7b0e0239b7b58efa0214";
   let customProvider = new ethers.JsonRpcProvider("http://localhost:1337");
