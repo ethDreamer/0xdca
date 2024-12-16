@@ -14,7 +14,7 @@ function loadAbi(abiFile) {
 
 // Get proxy contract instance
 function getProxyContract(ethersProvider, address) {
-  const abi = loadAbi("frontend/dca.json");
+  const abi = loadAbi("docs/dca.json");
   return new ethers.Contract(address, abi, ethersProvider);
 }
 
@@ -58,7 +58,7 @@ describe("Swap Debugging Test", function () {
     const buyTokenAddress = await proxyContract.buyToken();
 
     // Connect to the token contracts
-    erc20Abi = JSON.parse(fs.readFileSync("frontend/erc20.json", "utf8")); // Adjust path if needed
+    erc20Abi = JSON.parse(fs.readFileSync("docs/erc20.json", "utf8")); // Adjust path if needed
     sellToken = new ethers.Contract(sellTokenAddress, erc20Abi, customProvider);
     buyToken = new ethers.Contract(buyTokenAddress, erc20Abi, customProvider);
   });

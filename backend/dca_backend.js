@@ -109,7 +109,7 @@ async function verifyInterval(ethersProvider, lastSwap, swapInterval) {
 
 // Verify if proxy has sufficient allowance
 async function verifyAllowance(ethersProvider, sellTokenAddress, ownerAddress, spenderAddress, amount) {
-  const erc20Abi = loadAbi('../frontend/erc20.json');
+  const erc20Abi = loadAbi('../docs/erc20.json');
   const erc20Contract = new ethers.Contract(sellTokenAddress, erc20Abi, ethersProvider);
   const allowance = await erc20Contract.allowance(ownerAddress, spenderAddress);
   if (allowance >= amount) {
@@ -219,13 +219,13 @@ function getAccountFromAddress(address) {
 
 // Get proxy factory contract instance
 function getProxyFactoryContract(ethersProvider, address) {
-  const abi = loadAbi('../frontend/factory.json');
+  const abi = loadAbi('../docs/factory.json');
   return new ethers.Contract(address, abi, ethersProvider);
 }
 
 // Get proxy contract instance
 function getProxyContract(ethersProvider, address) {
-  const abi = loadAbi('../frontend/dca.json');
+  const abi = loadAbi('../docs/dca.json');
   return new ethers.Contract(address, abi, ethersProvider);
 }
 
@@ -324,7 +324,7 @@ async function logTokenBalances(address, sellToken, buyToken) {
 async function main() {
   // Load configurations
   const config = loadConfig('./config.json');
-  const networksConfig = loadNetworks('../frontend/networks.json');
+  const networksConfig = loadNetworks('../docs/networks.json');
   const knownAccounts = readAccountsSecurely('./seed_phrase.txt', 20);
   for (const account of knownAccounts) {
     logger.info(`Known account: ${account}`);
@@ -406,7 +406,7 @@ async function main() {
             }
 
             // Get ERC20 contracts for sellToken and buyToken
-            const erc20Abi = loadAbi('../frontend/erc20.json');
+            const erc20Abi = loadAbi('../docs/erc20.json');
             const sellTokenContract = new ethers.Contract(sellToken, erc20Abi, ethersProvider);
             const buyTokenAddress = await proxy.buyToken();
             const buyTokenContract = new ethers.Contract(buyTokenAddress, erc20Abi, ethersProvider);

@@ -32,9 +32,9 @@ with open('./scripts/data/proxyAddress.txt', 'r') as f:
     proxy_address = f.read().strip()
 
 # Load ABIs
-with open('./frontend/dca.json', 'r') as f:
+with open('./docs/dca.json', 'r') as f:
     dca_abi = json.load(f)
-with open('./frontend/erc20.json', 'r') as f:
+with open('./docs/erc20.json', 'r') as f:
     erc20_abi = json.load(f)
 
 # Contract instances
